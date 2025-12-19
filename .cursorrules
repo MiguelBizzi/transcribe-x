@@ -1,0 +1,138 @@
+# Cursor Rules for Transcribe-X Turborepo
+
+## Package Manager: Bun
+
+**CRITICAL**: This project uses **Bun** as the package manager. Always use `bun` commands instead of `npm`, `yarn`, or `pnpm`.
+
+- Install dependencies: `bun install` (or `bun i`)
+- Add a dependency: `bun add <package>` (use `bun add -d <package>` for dev dependencies)
+- Remove a dependency: `bun remove <package>`
+- Run scripts: `bun run <script>` (or just `bun <script>`)
+- Execute packages: `bunx <package>` (instead of `npx`)
+
+When installing dependencies:
+- **Root level**: Run `bun install` from the root directory to install all workspace dependencies
+- **App/Package level**: You can run `bun install` from specific app/package directories, but it's recommended to install from root
+- **Adding new packages**: Always add dependencies to the specific workspace where they're needed, not at the root unless it's a dev tool used across all workspaces
+
+## Turborepo Structure
+
+This is a **Turborepo monorepo** that uses a workspace-based architecture. Understanding the structure is crucial:
+
+### Workspace Layout
+
+```
+transcribe-x/
+├── apps/              # Applications (Next.js apps, etc.)
+│   ├── web/          # Main web application
+│   └── docs/         # Documentation site
+├── packages/          # Shared packages/libraries
+│   ├── ui/           # Shared UI components (@repo/ui)
+│   ├── eslint-config/ # Shared ESLint configuration (@repo/eslint-config)
+│   └── typescript-config/ # Shared TypeScript configs (@repo/typescript-config)
+├── turbo.json        # Turborepo task configuration
+└── package.json      # Root package.json with workspace definitions
+```
+
+### Workspace Naming Convention
+
+- Apps use simple names: `web`, `docs`
+- Packages use scoped names: `@repo/ui`, `@repo/eslint-config`, `@repo/typescript-config`
+- When referencing packages from apps, use the scoped name: `import { Button } from "@repo/ui/button"`
+
+### Turborepo Tasks
+
+Tasks are defined in `turbo.json` and can be run from the root:
+
+- `bun run build` - Builds all apps and packages (respects dependencies)
+- `bun run dev` - Runs dev servers for all apps (persistent, no cache)
+- `bun run lint` - Lints all workspaces (respects dependencies)
+- `bun run check-types` - Type checks all workspaces (respects dependencies)
+- `bun run format` - Formats code using Prettier
+
+**Task Dependencies**: Turborepo automatically handles task dependencies:
+- `^build` means "build all dependencies first"
+- `^lint` means "lint all dependencies first"
+- Tasks run in parallel when possible, respecting dependency order
+
+### Working with Workspaces
+
+1. **Adding Dependencies**:
+   - Navigate to the specific workspace directory
+   - Run `bun add <package>` in that directory
+   - Or use `bun add <package> --filter <workspace-name>` from root
+
+2. **Cross-Workspace Dependencies**:
+   - Packages can depend on other packages using workspace protocol: `"@repo/ui": "*"`
+   - Always use the workspace name, not relative paths
+   - After adding cross-workspace dependencies, run `bun install` from root
+
+3. **Running Tasks in Specific Workspaces**:
+   - Use Turbo's filtering: `bunx turbo run build --filter=web`
+   - Or navigate to the workspace and run the script directly: `cd apps/web && bun run dev`
+
+4. **Creating New Workspaces**:
+   - Add the new app/package to the appropriate directory (`apps/` or `packages/`)
+   - Ensure `package.json` has correct name and workspace references
+   - Update `turbo.json` if new task configurations are needed
+   - Run `bun install` from root to link workspaces
+
+### Turborepo Caching
+
+- Turborepo caches task outputs for faster builds
+- Cache is based on inputs defined in `turbo.json`
+- Use `bunx turbo run build --force` to bypass cache
+- Cache is stored in `.turbo/` directory (gitignored)
+
+### Best Practices
+
+1. **Always install from root**: Run `bun install` from the project root to ensure all workspace dependencies are properly linked
+
+2. **Use workspace names**: When importing from packages, use the workspace name:
+   ```typescript
+   import { Button } from "@repo/ui/button"  // ✅ Correct
+   import { Button } from "../../packages/ui/src/button"  // ❌ Wrong
+   ```
+
+3. **Respect task dependencies**: Don't manually run tasks in dependency order - let Turborepo handle it
+
+4. **TypeScript Configs**: Use shared TypeScript configs from `@repo/typescript-config`:
+   - `@repo/typescript-config/base.json` - Base config
+   - `@repo/typescript-config/nextjs.json` - Next.js specific
+   - `@repo/typescript-config/react-library.json` - React library config
+
+5. **ESLint Configs**: Use shared ESLint configs from `@repo/eslint-config`:
+   - Extend `@repo/eslint-config/base` or `@repo/eslint-config/next` in your workspace's ESLint config
+
+6. **Adding New Packages**:
+   - Place UI components in `packages/ui/src/`
+   - Export them via the package.json exports field
+   - Components are exported as: `@repo/ui/component-name` (maps to `./src/component-name.tsx`)
+
+7. **Development Workflow**:
+   - Run `bun run dev` from root to start all dev servers
+   - Individual apps run on different ports (e.g., web on 3000)
+   - Use Turbo's filtering to run specific apps: `bunx turbo run dev --filter=web`
+
+## Code Style & Quality
+
+- Use TypeScript for all new code
+- Follow the ESLint rules defined in `@repo/eslint-config`
+- Use Prettier for formatting (run `bun run format` from root)
+- Run type checking with `bun run check-types` before committing
+
+## File Organization
+
+- Keep shared components in `packages/ui/src/`
+- Keep app-specific code in respective `apps/*/` directories
+- Keep shared configs in `packages/*/` directories
+- Use absolute imports when possible (configured in tsconfig.json)
+
+## Important Notes
+
+- **Never use npm/yarn/pnpm** - Always use `bun`
+- **Always run `bun install` from root** after adding dependencies
+- **Respect workspace boundaries** - Don't import from apps in packages
+- **Use Turbo tasks** - Don't manually orchestrate builds across workspaces
+- **Check turbo.json** - Understand task dependencies before modifying build processes
+
