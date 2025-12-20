@@ -16,8 +16,8 @@ This Turborepo includes the following packages/apps:
 
 ### Apps and Packages
 
-- `web`: a [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by the `web` application
+- `web-app`: a [Next.js](https://nextjs.org/) app
+- `@repo/ui`: a stub React component library shared by the `web-app` application
 - `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
 - `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
 
@@ -51,12 +51,12 @@ You can build a specific package by using a [filter](https://turborepo.com/docs/
 
 ```
 # With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=web
+turbo build --filter=web-app
 
 # Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=web
-yarn exec turbo build --filter=web
-pnpm exec turbo build --filter=web
+npx turbo build --filter=web-app
+yarn exec turbo build --filter=web-app
+pnpm exec turbo build --filter=web-app
 ```
 
 ### Develop
@@ -79,12 +79,12 @@ You can develop a specific package by using a [filter](https://turborepo.com/doc
 
 ```
 # With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+turbo dev --filter=web-app
 
 # Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+npx turbo dev --filter=web-app
+yarn exec turbo dev --filter=web-app
+pnpm exec turbo dev --filter=web-app
 ```
 
 ### Remote Caching
