@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { env } from "@repo/env";
 import { Auth } from "./service";
 import { AuthModel } from "./model";
 
@@ -11,7 +12,7 @@ export const auth = new Elysia({ prefix: "/auth" })
       if (cookie.session) {
         cookie.session.value = response.token;
         cookie.session.httpOnly = true;
-        cookie.session.secure = process.env.NODE_ENV === "production";
+        cookie.session.secure = env.NODE_ENV === "production";
         cookie.session.sameSite = "lax";
       }
 
@@ -33,7 +34,7 @@ export const auth = new Elysia({ prefix: "/auth" })
       if (cookie.session) {
         cookie.session.value = response.token;
         cookie.session.httpOnly = true;
-        cookie.session.secure = process.env.NODE_ENV === "production";
+        cookie.session.secure = env.NODE_ENV === "production";
         cookie.session.sameSite = "lax";
       }
 

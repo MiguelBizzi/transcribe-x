@@ -1,11 +1,8 @@
 import { app } from "./app";
-
-const PORT = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 3001;
-const HOST = process.env.HOST || "0.0.0.0";
+import { env } from "@repo/env";
 
 app.listen({
-  port: PORT,
-  hostname: HOST,
+  port: env.API_PORT,
 });
 
-console.log(`🚀 API server is running at http://${HOST}:${PORT}`);
+console.log(`🚀 API server is running at the port ${env.API_PORT}`);
