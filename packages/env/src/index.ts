@@ -41,6 +41,15 @@ const envSchema = z.object({
     .default("3000")
     .transform((val) => Number.parseInt(val, 10))
     .pipe(z.number().int().positive()),
+  DATABASE_URL: z
+    .string()
+    .url()
+    .refine(
+      (url) => url.startsWith("postgresql://") || url.startsWith("postgres://"),
+      {
+        message: "DATABASE_URL must be a valid PostgreSQL connection string",
+      }
+    ),
 });
 
 function getEnv() {
