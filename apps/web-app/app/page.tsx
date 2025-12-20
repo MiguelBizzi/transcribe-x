@@ -5,7 +5,9 @@ import { Spinner } from "@repo/ui/components/ui/spinner";
 export default function Home() {
   return (
     <div>
-      <h1>Hello World</h1>
+      <h1 className="flex items-center justify-center bg-red-500 text-2xl font-bold">
+        Hello World
+      </h1>
       <Button>Click me</Button>
       <Spinner />
       <Badge>Badge</Badge>

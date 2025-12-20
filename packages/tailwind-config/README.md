@@ -9,4 +9,3 @@ Import the styles in your app's main CSS file:
 ```css
 @import "@repo/tailwind-config/styles";
 ```
-

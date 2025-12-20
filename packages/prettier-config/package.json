@@ -1,23 +1,25 @@
 {
-  "name": "@repo/tailwind-config",
+  "name": "@repo/prettier-config",
   "version": "0.0.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "exports": {
-    "./styles": "./src/styles.css"
+    ".": "./index.js"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
     "format": "prettier --write ."
+  },
+  "dependencies": {
+    "prettier": "^3.7.4",
+    "prettier-plugin-tailwindcss": "^0.6.9"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
-    "@repo/prettier-config": "*",
     "@repo/typescript-config": "*",
     "@types/node": "^22.15.3",
     "eslint": "^9.39.1",
-    "tailwindcss": "^4.0.0",
-    "tw-animate-css": "^1.1.0",
     "typescript": "5.9.2"
   }
 }

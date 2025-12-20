@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "bun run scripts/start.ts",
     "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@repo/env": "*",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
+    "@repo/prettier-config": "*",
     "@repo/typescript-config": "*",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.15.3",
