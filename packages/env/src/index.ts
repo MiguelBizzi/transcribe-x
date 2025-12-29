@@ -41,6 +41,11 @@ const envSchema = z.object({
     .default("3000")
     .transform((val) => Number.parseInt(val, 10))
     .pipe(z.number().int().positive()),
+  LANDING_PORT: z
+    .string()
+    .default("3002")
+    .transform((val) => Number.parseInt(val, 10))
+    .pipe(z.number().int().positive()),
   DATABASE_URL: z
     .string()
     .url()

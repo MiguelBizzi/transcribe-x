@@ -1,7 +1,7 @@
 import { env } from "@repo/env";
 import { spawn } from "node:child_process";
 
-const port = env.WEB_APP_PORT.toString();
+const port = env.LANDING_PORT.toString();
 
 const nextStart = spawn("next", ["start", "--port", port], {
   stdio: "inherit",
@@ -16,7 +16,4 @@ nextStart.on("error", (error) => {
 nextStart.on("exit", (code) => {
   process.exit(code ?? 0);
 });
-
-
-
 
