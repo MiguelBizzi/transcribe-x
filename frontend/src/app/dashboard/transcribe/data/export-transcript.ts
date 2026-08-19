@@ -55,27 +55,48 @@ export function resolveTranscriptText(
 
 export function transcriptionToPayload(
   transcription: TranscriptionDetail,
+  options?: { useProcessed?: boolean },
 ): TranscriptExportPayload {
+  const useProcessed = Boolean(
+    options?.useProcessed && transcription.processedContent?.trim(),
+  )
+
   return {
     title: transcription.title,
     youtubeId: transcription.youtubeId,
-    content: resolveTranscriptText(
-      transcription.content,
-      transcription.timestamps,
-    ),
-    timestamps: transcription.timestamps,
+    content: useProcessed
+      ? transcription.processedContent!.trim()
+      : resolveTranscriptText(
+          transcription.content,
+          transcription.timestamps,
+        ),
+    timestamps: useProcessed ? null : transcription.timestamps,
     language: transcription.language,
     duration: transcription.duration,
-    wordCount: transcription.wordCount,
+    wordCount: useProcessed
+      ? transcription.qualityMetrics?.processedWordCount ??
+        transcription.wordCount
+      : transcription.wordCount,
+    extra: {
+      isProcessed: transcription.isProcessed,
+      exportSource: useProcessed ? 'processed' : 'raw',
+      qualityMetrics: transcription.qualityMetrics,
+    },
   }
 }
 
 export function playlistToPayload(
   playlist: PlaylistDetail,
+  options?: { useProcessed?: boolean },
 ): TranscriptExportPayload {
   const sections = playlist.transcriptions.map((video, index) => {
     const heading = `${index + 1}. ${video.title}`
-    const body = resolveTranscriptText(video.content, video.timestamps)
+    const useProcessed = Boolean(
+      options?.useProcessed && video.processedContent?.trim(),
+    )
+    const body = useProcessed
+      ? video.processedContent!.trim()
+      : resolveTranscriptText(video.content, video.timestamps)
     return body ? `${heading}\n${body}` : heading
   })
 
@@ -89,18 +110,28 @@ export function playlistToPayload(
     extra: {
       videoCount: playlist.videoCount,
       channelTitle: playlist.channelTitle,
-      videos: playlist.transcriptions.map((video) => ({
-        id: video.id,
-        youtubeId: video.youtubeId,
-        title: video.title,
-        status: video.status,
-        content: resolveTranscriptText(video.content, video.timestamps),
-        timestamps: video.timestamps,
-        duration: video.duration,
-        wordCount: video.wordCount,
-        language: video.language,
-        videoIndex: video.videoIndex,
-      })),
+      exportSource: options?.useProcessed ? 'processed' : 'raw',
+      videos: playlist.transcriptions.map((video) => {
+        const useProcessed = Boolean(
+          options?.useProcessed && video.processedContent?.trim(),
+        )
+        return {
+          id: video.id,
+          youtubeId: video.youtubeId,
+          title: video.title,
+          status: video.status,
+          content: useProcessed
+            ? video.processedContent!.trim()
+            : resolveTranscriptText(video.content, video.timestamps),
+          timestamps: useProcessed ? null : video.timestamps,
+          duration: video.duration,
+          wordCount: video.wordCount,
+          language: video.language,
+          videoIndex: video.videoIndex,
+          isProcessed: video.isProcessed,
+          qualityMetrics: video.qualityMetrics,
+        }
+      }),
     },
   }
 }

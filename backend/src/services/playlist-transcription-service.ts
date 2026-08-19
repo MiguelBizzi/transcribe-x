@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma'
 import { transcriptionService } from './transcription-service'
 import { youtubeService } from './youtube-service'
+import { textQualityService } from './text-quality-service'
 import { TranscriptionStatus, TranscriptionType } from '@/generated/prisma/client'
 
 export interface PlaylistTranscriptionResult {
@@ -113,6 +114,13 @@ export class PlaylistTranscriptionService {
                                     isPlaylistVideo: true,
                                 },
                             },
+                        )
+
+                        await textQualityService.processAndPersist(
+                            transcription.id,
+                            transcriptResult.raw_text,
+                            transcriptResult.language_code,
+                            Boolean(transcriptResult.is_generated),
                         )
 
                         results.push({
@@ -229,10 +237,14 @@ export class PlaylistTranscriptionService {
                         title: true,
                         status: true,
                         content: true,
+                        thumbnail: true,
                         duration: true,
                         wordCount: true,
                         language: true,
                         timestamps: true,
+                        processedContent: true,
+                        qualityMetrics: true,
+                        isProcessed: true,
                         videoIndex: true,
                         createdAt: true,
                     },

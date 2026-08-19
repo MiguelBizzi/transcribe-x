@@ -36,6 +36,7 @@ else
 fi
 
 chmod +x youtube_transcript.py
+chmod +x text_processor.py
 
 echo "🧪 Testing the transcript service..."
 python3 youtube_transcript.py test123

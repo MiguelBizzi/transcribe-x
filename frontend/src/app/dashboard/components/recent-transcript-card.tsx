@@ -1,13 +1,7 @@
+import Link from 'next/link'
 import { Clock, Video } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Calendar,
-  Play,
-  Download,
-  XCircle,
-  CheckCircle,
-} from 'lucide-react'
+import { Calendar, Play, XCircle, CheckCircle } from 'lucide-react'
 import type { Transcription } from '../data/recent-activity'
 import { formatDateShort } from '@/utils/format-date'
 
@@ -45,7 +39,10 @@ export function RecentTranscriptCard({
   }
 
   return (
-    <div className="hover:bg-muted/50 flex items-center gap-4 rounded-lg border p-4 transition-colors">
+    <Link
+      href={`/dashboard/transcriptions/${transcription.id}`}
+      className="hover:bg-muted/50 flex items-center gap-4 rounded-lg border p-4 transition-colors"
+    >
       {transcription.thumbnail ? (
         <div className="bg-muted relative h-12 w-20 flex-shrink-0 overflow-hidden rounded-lg">
           <img
@@ -93,19 +90,6 @@ export function RecentTranscriptCard({
           )}
         </div>
       </div>
-
-      {transcription.status.toLowerCase() === 'completed' && (
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1">
-            <Download className="h-3 w-3" />
-            TXT
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1">
-            <Download className="h-3 w-3" />
-            PDF
-          </Button>
-        </div>
-      )}
-    </div>
+    </Link>
   )
 }

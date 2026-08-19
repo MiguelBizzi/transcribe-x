@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { transcriptionService } from '@/services/transcription-service'
 import { youtubeService } from '@/services/youtube-service'
+import { textQualityService } from '@/services/text-quality-service'
 import { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from '@fastify/type-provider-zod'
 import { z } from 'zod'
 import { BadRequestError } from '../_errors/bad-request-error'
 import { getCurrentUser } from '../../middlewares/auth'
+import { qualityMetricsSchema } from './quality-metrics-schema'
 import { TranscriptionStatus, TranscriptionType } from '@/generated/prisma/client'
 
 export async function createVideoTranscription(app: FastifyInstance) {
@@ -41,6 +43,9 @@ export async function createVideoTranscription(app: FastifyInstance) {
                                     }),
                                 )
                                 .nullable(),
+                            processedContent: z.string().nullable(),
+                            qualityMetrics: qualityMetricsSchema.nullable(),
+                            isProcessed: z.boolean(),
                             createdAt: z.string(),
                             updatedAt: z.string(),
                         }),
@@ -88,6 +93,7 @@ export async function createVideoTranscription(app: FastifyInstance) {
                     wordCount,
                     language,
                     timestamps,
+                    isGenerated,
                 } = await transcriptionService.getCleanTranscript(videoUrl)
 
                 let status: TranscriptionStatus
@@ -124,6 +130,27 @@ export async function createVideoTranscription(app: FastifyInstance) {
                     },
                 })
 
+                let processedContent: string | null = null
+                let qualityMetrics: z.infer<typeof qualityMetricsSchema> | null =
+                    null
+                let isProcessed = false
+
+                if (status === TranscriptionStatus.COMPLETED && content) {
+                    const processed =
+                        await textQualityService.processAndPersist(
+                            transcription.id,
+                            content,
+                            language || 'en',
+                            Boolean(isGenerated),
+                        )
+
+                    if (processed) {
+                        processedContent = processed.processedText
+                        qualityMetrics = processed.qualityMetrics
+                        isProcessed = true
+                    }
+                }
+
                 const transcriptionResponse = {
                     id: transcription.id,
                     youtubeId: transcription.youtubeId,
@@ -135,6 +162,9 @@ export async function createVideoTranscription(app: FastifyInstance) {
                     wordCount: transcription.wordCount,
                     language: transcription.language,
                     timestamps: transcription.timestamps as any,
+                    processedContent,
+                    qualityMetrics,
+                    isProcessed,
                     createdAt: transcription.createdAt.toISOString(),
                     updatedAt: transcription.updatedAt.toISOString(),
                 }

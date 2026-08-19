@@ -4,6 +4,7 @@ import type { ZodTypeProvider } from '@fastify/type-provider-zod'
 import { z } from 'zod'
 import { getCurrentUser } from '../../middlewares/auth'
 import { BadRequestError } from '../_errors/bad-request-error'
+import { qualityMetricsSchema } from './quality-metrics-schema'
 
 export async function getTranscriptionById(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().get(
@@ -39,6 +40,9 @@ export async function getTranscriptionById(app: FastifyInstance) {
                                     }),
                                 )
                                 .nullable(),
+                            processedContent: z.string().nullable(),
+                            qualityMetrics: qualityMetricsSchema.nullable(),
+                            isProcessed: z.boolean(),
                             createdAt: z.string(),
                             updatedAt: z.string(),
                         }),
@@ -77,6 +81,9 @@ export async function getTranscriptionById(app: FastifyInstance) {
                     language: true,
                     errorMessage: true,
                     timestamps: true,
+                    processedContent: true,
+                    qualityMetrics: true,
+                    isProcessed: true,
                     createdAt: true,
                     updatedAt: true,
                 },
@@ -100,6 +107,12 @@ export async function getTranscriptionById(app: FastifyInstance) {
                     language: transcription.language,
                     errorMessage: transcription.errorMessage,
                     timestamps: transcription.timestamps as any,
+                    processedContent: transcription.processedContent,
+                    qualityMetrics:
+                        (transcription.qualityMetrics as z.infer<
+                            typeof qualityMetricsSchema
+                        > | null) ?? null,
+                    isProcessed: transcription.isProcessed,
                     createdAt: transcription.createdAt.toISOString(),
                     updatedAt: transcription.updatedAt.toISOString(),
                 },

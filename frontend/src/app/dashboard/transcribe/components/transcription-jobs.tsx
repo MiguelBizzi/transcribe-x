@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, RefreshCw, Clock, XCircle } from 'lucide-react'
+import Link from 'next/link'
 import { getTranscriptions } from '../data/transcriptions'
 import { TranscriptionJobActions } from './transcription-job-actions'
 
@@ -79,63 +80,68 @@ export async function TranscriptionJobs() {
                 className="bg-muted/30 hover:bg-muted/50 w-full rounded-lg p-6 transition-colors"
               >
                 <div className="flex w-full items-start gap-4">
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={
-                        transcription.thumbnail ||
-                        'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'
-                      }
-                      alt={transcription.title}
-                      className="h-16 w-24 rounded-md object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20">
-                      {getStatusIconSafe(transcription.status)}
-                    </div>
-                  </div>
-
-                  <div className="w-full flex-1 space-y-3">
-                    <div className="flex w-full items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold">{transcription.title}</h3>
-                        <p className="text-muted-foreground truncate text-sm">
-                          {transcription.youtubeId}
-                        </p>
+                  <Link
+                    href={`/dashboard/transcriptions/${transcription.id}`}
+                    className="flex min-w-0 flex-1 items-start gap-4"
+                  >
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={
+                          transcription.thumbnail ||
+                          'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'
+                        }
+                        alt={transcription.title}
+                        className="h-16 w-24 rounded-md object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20">
+                        {getStatusIconSafe(transcription.status)}
                       </div>
-                      <Badge
-                        className={getStatusColorSafe(transcription.status)}
-                      >
-                        {transcription.status}
-                      </Badge>
                     </div>
 
-                    {transcription.status === 'processing' && (
-                      <div className="w-full space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Processing...</span>
-                          <span>50%</span>
+                    <div className="w-full flex-1 space-y-3">
+                      <div className="flex w-full items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold">
+                            {transcription.title}
+                          </h3>
+                          <p className="text-muted-foreground truncate text-sm">
+                            {transcription.youtubeId}
+                          </p>
                         </div>
-                        <Progress value={50} className="h-2" />
-                        <p className="text-muted-foreground text-xs">
-                          Estimated time: Processing...
-                        </p>
+                        <Badge
+                          className={getStatusColorSafe(transcription.status)}
+                        >
+                          {transcription.status}
+                        </Badge>
                       </div>
-                    )}
 
-                    <div className="flex w-full items-center gap-2 pt-2">
-                      {transcription.status === 'COMPLETED' && (
-                        <TranscriptionJobActions
-                          transcription={transcription}
-                        />
-                      )}
-
-                      {transcription.status === 'ERROR' && (
-                        <Button variant="outline" size="sm" className="text-xs">
-                          <RefreshCw className="mr-1 h-3 w-3" />
-                          Retry
-                        </Button>
+                      {transcription.status === 'processing' && (
+                        <div className="w-full space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Processing...</span>
+                            <span>50%</span>
+                          </div>
+                          <Progress value={50} className="h-2" />
+                          <p className="text-muted-foreground text-xs">
+                            Estimated time: Processing...
+                          </p>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  </Link>
+                </div>
+
+                <div className="flex w-full items-center gap-2 pt-4">
+                  {transcription.status === 'COMPLETED' && (
+                    <TranscriptionJobActions transcription={transcription} />
+                  )}
+
+                  {transcription.status === 'ERROR' && (
+                    <Button variant="outline" size="sm" className="text-xs">
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                      Retry
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

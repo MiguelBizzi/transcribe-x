@@ -4,6 +4,7 @@ import type { ZodTypeProvider } from '@fastify/type-provider-zod'
 import { z } from 'zod'
 import { getCurrentUser } from '../../middlewares/auth'
 import { BadRequestError } from '../_errors/bad-request-error'
+import { qualityMetricsSchema } from './quality-metrics-schema'
 
 export async function getPlaylistById(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().get(
@@ -37,10 +38,15 @@ export async function getPlaylistById(app: FastifyInstance) {
                                     title: z.string(),
                                     status: z.string(),
                                     content: z.string().nullable(),
+                                    thumbnail: z.string().nullable(),
                                     duration: z.number().nullable(),
                                     wordCount: z.number().nullable(),
                                     language: z.string().nullable(),
                                     timestamps: z.any().nullable(),
+                                    processedContent: z.string().nullable(),
+                                    qualityMetrics:
+                                        qualityMetricsSchema.nullable(),
+                                    isProcessed: z.boolean(),
                                     videoIndex: z.number().nullable(),
                                     createdAt: z.string(),
                                 }),
@@ -97,10 +103,18 @@ export async function getPlaylistById(app: FastifyInstance) {
                                 title: transcription.title,
                                 status: transcription.status,
                                 content: transcription.content,
+                                thumbnail: transcription.thumbnail,
                                 duration: transcription.duration,
                                 wordCount: transcription.wordCount,
                                 language: transcription.language,
                                 timestamps: transcription.timestamps,
+                                processedContent:
+                                    transcription.processedContent,
+                                qualityMetrics:
+                                    (transcription.qualityMetrics as z.infer<
+                                        typeof qualityMetricsSchema
+                                    > | null) ?? null,
+                                isProcessed: transcription.isProcessed,
                                 videoIndex: transcription.videoIndex,
                                 createdAt:
                                     transcription.createdAt.toISOString(),

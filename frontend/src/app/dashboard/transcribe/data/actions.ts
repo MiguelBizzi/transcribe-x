@@ -9,6 +9,7 @@ import type {
   CreateTranscriptionResponse,
   PlaylistTranscriptionRequest,
   PlaylistTranscriptionResponse,
+  QualityMetrics,
 } from './types'
 import { getTranscriptionById } from './transcriptions'
 import { getPlaylistTranscriptionById } from './playlist-transcriptions'
@@ -109,3 +110,43 @@ export async function fetchTranscriptionForExport(id: string) {
 export async function fetchPlaylistForExport(id: string) {
   return getPlaylistTranscriptionById(id)
 }
+
+const reprocessTranscriptionSchema = z.object({
+  id: z.string().uuid('Invalid transcription ID'),
+})
+
+export const reprocessTranscriptionAction = actionClient
+  .inputSchema(reprocessTranscriptionSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        transcription: {
+          id: string
+          processedContent: string | null
+          qualityMetrics: QualityMetrics | null
+          isProcessed: boolean
+        }
+      }>(`/transcriptions/${id}/process`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/transcriptions/${id}`)
+      revalidatePath('/dashboard/transcribe')
+      revalidatePath('/dashboard')
+
+      return {
+        success: true,
+        message: response.message,
+        transcription: response.transcription,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to process transcription',
+      }
+    }
+  })

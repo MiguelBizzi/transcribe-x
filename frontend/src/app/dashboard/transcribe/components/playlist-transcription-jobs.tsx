@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { getPlaylistTranscriptions } from '../data/playlist-transcriptions'
 import { PlaylistJobActions } from './playlist-job-actions'
+import Link from 'next/link'
 
 const getStatusIconSafe = (status: string) => {
   switch (status.toUpperCase()) {
@@ -102,63 +103,68 @@ export async function PlaylistTranscriptionJobs() {
                 className="bg-muted/30 hover:bg-muted/50 w-full rounded-lg p-6 transition-colors"
               >
                 <div className="flex w-full items-start gap-4">
-                  <div className="relative flex-shrink-0">
-                    <div className="flex h-16 w-24 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900">
-                      <PlaySquare className="h-8 w-8 text-blue-500" />
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20">
-                      {getStatusIconSafe(playlist.status)}
-                    </div>
-                  </div>
-
-                  <div className="w-full flex-1 space-y-3">
-                    <div className="flex w-full items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold">{playlist.title}</h3>
-                        <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {playlist.videoCount} videos
-                          </span>
-                          <span>
-                            Duration: {formatDuration(playlist.totalDuration)}
-                          </span>
-                        </div>
+                  <Link
+                    href={`/dashboard/playlists/${playlist.id}`}
+                    className="flex min-w-0 flex-1 items-start gap-4"
+                  >
+                    <div className="relative flex-shrink-0">
+                      <div className="flex h-16 w-24 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900">
+                        <PlaySquare className="h-8 w-8 text-blue-500" />
                       </div>
-                      <Badge className={getStatusColorSafe(playlist.status)}>
-                        {playlist.status}
-                      </Badge>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20">
+                        {getStatusIconSafe(playlist.status)}
+                      </div>
                     </div>
 
-                    {isProcessing(playlist.status) && (
-                      <div className="w-full space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Processing playlist...</span>
-                          <span>{playlist.progress ?? 0}%</span>
+                    <div className="w-full flex-1 space-y-3">
+                      <div className="flex w-full items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold">{playlist.title}</h3>
+                          <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {playlist.videoCount} videos
+                            </span>
+                            <span>
+                              Duration: {formatDuration(playlist.totalDuration)}
+                            </span>
+                          </div>
                         </div>
-                        <Progress
-                          value={playlist.progress ?? 0}
-                          className="h-2"
-                        />
-                        <p className="text-muted-foreground text-xs">
-                          Processing {playlist.videoCount} videos...
-                        </p>
+                        <Badge className={getStatusColorSafe(playlist.status)}>
+                          {playlist.status}
+                        </Badge>
                       </div>
-                    )}
 
-                    <div className="flex w-full items-center gap-2 pt-2">
-                      {isCompleted(playlist.status) && (
-                        <PlaylistJobActions playlist={playlist} />
-                      )}
-
-                      {isError(playlist.status) && (
-                        <Button variant="outline" size="sm" className="text-xs">
-                          <RefreshCw className="mr-1 h-3 w-3" />
-                          Retry
-                        </Button>
+                      {isProcessing(playlist.status) && (
+                        <div className="w-full space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Processing playlist...</span>
+                            <span>{playlist.progress ?? 0}%</span>
+                          </div>
+                          <Progress
+                            value={playlist.progress ?? 0}
+                            className="h-2"
+                          />
+                          <p className="text-muted-foreground text-xs">
+                            Processing {playlist.videoCount} videos...
+                          </p>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  </Link>
+                </div>
+
+                <div className="flex w-full items-center gap-2 pt-4">
+                  {isCompleted(playlist.status) && (
+                    <PlaylistJobActions playlist={playlist} />
+                  )}
+
+                  {isError(playlist.status) && (
+                    <Button variant="outline" size="sm" className="text-xs">
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                      Retry
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

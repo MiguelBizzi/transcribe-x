@@ -1,3 +1,17 @@
+export interface QualityMetrics {
+  originalWordCount: number
+  processedWordCount: number
+  noiseReductionRate: number
+  lexicalDiversity: number
+  avgSentenceLength: number
+  hesitationCount: number
+  repetitionCount: number
+  timestampMarkersRemoved: number
+  detectedLanguage: string
+  processingDurationMs: number
+  qualityScore: number
+}
+
 export interface TranscriptionJob {
   id: string
   title: string
@@ -31,6 +45,9 @@ export interface Transcription {
 export interface TranscriptionDetail extends Transcription {
   content: string | null
   errorMessage: string | null
+  processedContent: string | null
+  qualityMetrics: QualityMetrics | null
+  isProcessed: boolean
 }
 
 export type ExportFormat = 'TXT' | 'PDF' | 'DOCX' | 'JSON'
@@ -116,10 +133,14 @@ export interface PlaylistVideoTranscription {
   title: string
   status: string
   content: string | null
+  thumbnail: string | null
   duration: number | null
   wordCount: number | null
   language: string | null
   timestamps: Timestamp[] | null
+  processedContent: string | null
+  qualityMetrics: QualityMetrics | null
+  isProcessed: boolean
   videoIndex: number | null
   createdAt: string
 }
