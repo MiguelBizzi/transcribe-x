@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+    postgres:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_USER: root
+            POSTGRES_PASSWORD: secret
+            POSTGRES_DB: transcribe-x-db
+        ports:
+            - '5433:5432'
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U root -d transcribe-x-db']
+            interval: 2s
+            timeout: 5s
+            retries: 20
+
+volumes:
+    postgres-data:

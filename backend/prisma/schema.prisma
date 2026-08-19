@@ -1,0 +1,150 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model User {
+    id             String           @id @default(uuid()) @map("id")
+    email          String           @unique @map("email")
+    name           String?          @map("name")
+    avatar         String?          @map("avatar")
+    provider       AuthProvider     @default(CREDENTIALS) @map("provider")
+    passwordHash   String?          @map("password_hash")
+    googleId       String?          @unique @map("google_id")
+    isActive       Boolean          @default(true) @map("is_active")
+    emailVerified  Boolean          @default(false) @map("email_verified")
+    createdAt      DateTime         @default(now()) @map("created_at")
+    updatedAt      DateTime         @updatedAt @map("updated_at")
+    playlists      Playlist[]
+    recentActivity RecentActivity[]
+    transcriptions Transcription[]
+
+    @@index([createdAt])
+    @@map("users")
+}
+
+model Transcription {
+    id                  String              @id @default(uuid()) @map("id")
+    userId              String              @map("user_id")
+    youtubeId           String              @map("youtube_id")
+    title               String              @map("title")
+    type                TranscriptionType   @map("type")
+    thumbnail           String?             @map("thumbnail")
+    status              TranscriptionStatus @default(COMPLETED) @map("status")
+    content             String?             @map("content")
+    duration            Int?                @map("duration")
+    wordCount           Int?                @map("word_count")
+    language            String?             @map("language")
+    errorMessage        String?             @map("error_message")
+    processingStartedAt DateTime?           @map("processing_started_at")
+    completedAt         DateTime?           @map("completed_at")
+    createdAt           DateTime            @default(now()) @map("created_at")
+    updatedAt           DateTime            @updatedAt @map("updated_at")
+    timestamps          Json?               @map("timestamps")
+    isPlaylistVideo     Boolean             @default(false) @map("is_playlist_video")
+    playlistId          String?             @map("playlist_id")
+    videoIndex          Int?                @map("video_index")
+    exports             Export[]
+    playlist            Playlist?           @relation(fields: [playlistId], references: [id])
+    user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([youtubeId])
+    @@index([status])
+    @@index([createdAt])
+    @@index([userId, createdAt])
+    @@index([playlistId])
+    @@map("transcriptions")
+}
+
+model Export {
+    id              String        @id @default(uuid()) @map("id")
+    transcriptionId String        @map("transcription_id")
+    format          ExportFormat  @map("format")
+    fileUrl         String?       @map("file_url")
+    fileSize        Int?          @map("file_size")
+    status          String        @default("pending") @map("status")
+    errorMessage    String?       @map("error_message")
+    createdAt       DateTime      @default(now()) @map("created_at")
+    completedAt     DateTime?     @map("completed_at")
+    transcription   Transcription @relation(fields: [transcriptionId], references: [id], onDelete: Cascade)
+
+    @@index([transcriptionId])
+    @@index([status])
+    @@map("exports")
+}
+
+model RecentActivity {
+    id          String               @id @default(uuid()) @map("id")
+    userId      String               @map("user_id")
+    description String               @map("description")
+    metadata    Json?                @map("metadata")
+    createdAt   DateTime             @default(now()) @map("created_at")
+    action      RecentActivityAction @map("action")
+    user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([createdAt])
+    @@index([userId, createdAt])
+    @@map("recent_activity")
+}
+
+model Playlist {
+    id                  String              @id @default(uuid()) @map("id")
+    userId              String              @map("user_id")
+    youtubeId           String              @map("youtube_id")
+    title               String              @map("title")
+    description         String?             @map("description")
+    channelTitle        String?             @map("channel_title")
+    channelId           String?             @map("channel_id")
+    thumbnail           String?             @map("thumbnail")
+    videoCount          Int                 @map("video_count")
+    status              TranscriptionStatus @default(COMPLETED) @map("status")
+    totalDuration       Int?                @map("total_duration")
+    totalWordCount      Int?                @map("total_word_count")
+    errorMessage        String?             @map("error_message")
+    processingStartedAt DateTime?           @map("processing_started_at")
+    completedAt         DateTime?           @map("completed_at")
+    createdAt           DateTime            @default(now()) @map("created_at")
+    updatedAt           DateTime            @updatedAt @map("updated_at")
+    user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+    transcriptions      Transcription[]
+
+    @@index([userId])
+    @@index([youtubeId])
+    @@index([status])
+    @@index([createdAt])
+    @@index([userId, createdAt])
+    @@map("playlists")
+}
+
+enum AuthProvider {
+    GOOGLE
+    CREDENTIALS
+}
+
+enum TranscriptionType {
+    VIDEO
+    PLAYLIST
+    CHANNEL
+}
+
+enum TranscriptionStatus {
+    COMPLETED
+    ERROR
+}
+
+enum ExportFormat {
+    TXT
+    PDF
+    DOCX
+    JSON
+}
+
+enum RecentActivityAction {
+    LOGOUT
+}

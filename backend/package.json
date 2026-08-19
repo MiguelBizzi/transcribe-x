@@ -1,0 +1,77 @@
+{
+    "name": "transcribe-x-api",
+    "version": "1.0.0",
+    "description": "API for TranscribeX",
+    "main": "index.js",
+    "type": "module",
+    "packageManager": "pnpm@10.34.5",
+    "engines": {
+        "node": ">=24 <25",
+        "pnpm": ">=10 <11"
+    },
+    "scripts": {
+        "dev": "tsx watch src/http/server.ts",
+        "build": "tsc --noEmit",
+        "start": "tsx src/http/server.ts",
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit",
+        "postinstall": "prisma generate",
+        "db:migrate": "prisma migrate dev",
+        "db:deploy": "prisma migrate deploy",
+        "db:reset": "prisma migrate reset",
+        "db:generate": "prisma generate",
+        "db:studio": "prisma studio",
+        "transcript:setup": "cd scripts && chmod +x setup.sh && ./setup.sh",
+        "transcript:test-python": "python3 scripts/youtube_transcript.py dQw4w9WgXcQ"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "pnpm": {
+        "onlyBuiltDependencies": [
+            "@prisma/adapter-pg",
+            "@prisma/client",
+            "@prisma/engines",
+            "esbuild",
+            "prisma",
+            "pg"
+        ],
+        "overrides": {
+            "fast-jwt": "^6.2.4",
+            "@fastify/static": "^10.1.1",
+            "deepmerge-ts": "^8.0.0"
+        }
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.5",
+        "@types/node": "^24.13.3",
+        "@types/node-cron": "^3.0.11",
+        "@types/pg": "^8.23.1",
+        "eslint": "^9.39.5",
+        "eslint-config-prettier": "^10.1.8",
+        "prettier": "^3.6.2",
+        "prisma": "^7.9.1",
+        "tsx": "^4.20.0",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.40.0"
+    },
+    "dependencies": {
+        "@fastify/cors": "^11.1.0",
+        "@fastify/jwt": "^10.2.2",
+        "@fastify/multipart": "^9.2.1",
+        "@fastify/static": "^10.1.1",
+        "@fastify/swagger": "^9.5.1",
+        "@fastify/swagger-ui": "^5.2.3",
+        "@fastify/type-provider-zod": "^1.0.0",
+        "@prisma/adapter-pg": "^7.9.1",
+        "@prisma/client": "^7.9.1",
+        "bcryptjs": "^3.0.2",
+        "dotenv": "^16.6.1",
+        "fastify": "^5.12.1",
+        "fastify-plugin": "^5.1.0",
+        "googleapis": "^175.0.0",
+        "node-cron": "^4.2.1",
+        "pg": "^8.23.0",
+        "zod": "^4.4.3"
+    }
+}
