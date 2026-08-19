@@ -20,20 +20,20 @@ export function RedirectComponents() {
               <Video className="h-6 w-6 text-white" />
             </div>
             <div>
-              <div className="text-xl">Transcribe Videos</div>
+              <div className="text-xl">Transcrever vídeos</div>
               <div className="text-muted-foreground text-sm font-normal">
-                Bulk transcription service
+                Serviço de transcrição em lote
               </div>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-4">
-            Transcribe single videos, playlists, or entire channels in bulk.
-            Download in multiple formats (TXT, PDF, DOCX, JSON).
+            Transcreva vídeos avulsos, playlists ou canais inteiros em lote.
+            Baixe em vários formatos (TXT, PDF, DOCX, JSON).
           </p>
           <Button className="w-full" variant="outline" size="lg">
-            Start Transcribing
+            Começar a transcrever
             <Upload className="h-4 w-4 transition-transform group-hover:translate-y-[-2px]" />
           </Button>
         </CardContent>

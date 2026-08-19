@@ -65,32 +65,32 @@ export function VideoInputSection() {
 
         if (result.data?.success && result.data.playlist) {
           toast.success(
-            `Playlist transcription started: ${result.data.playlist.title}`,
+            `Transcrição da playlist iniciada: ${result.data.playlist.title}`,
           )
           if (result.data.result) {
             toast.info(
-              `Processing ${result.data.result.totalVideos} videos.`,
+              `Processando ${result.data.result.totalVideos} vídeos.`,
             )
           }
         } else if (result.serverError) {
           toast.error(result.serverError)
         } else if (result.validationErrors) {
-          toast.error('Invalid playlist URL')
+          toast.error('URL da playlist inválida')
         } else {
-          toast.error('Failed to start playlist transcription')
+          toast.error('Não foi possível iniciar a transcrição da playlist')
         }
       } else {
         for (const url of detectedUrls) {
           const result = await createTranscriptionAction({ videoUrl: url })
 
           if (result.data?.success) {
-            toast.success(`Transcription started for: ${url}`)
+            toast.success(`Transcrição iniciada para: ${url}`)
           } else if (result.serverError) {
             toast.error(result.serverError)
           } else if (result.validationErrors) {
-            toast.error('Invalid input data')
+            toast.error('Dados de entrada inválidos')
           } else {
-            toast.error('Failed to start transcription')
+            toast.error('Não foi possível iniciar a transcrição')
           }
         }
       }
@@ -100,7 +100,7 @@ export function VideoInputSection() {
       setUrlType(null)
     } catch (error) {
       console.error('Error starting transcription:', error)
-      toast.error('Failed to start transcription process')
+      toast.error('Não foi possível iniciar o processo de transcrição')
     } finally {
       setIsProcessing(false)
     }
@@ -114,15 +114,15 @@ export function VideoInputSection() {
         <div className="bg-primary rounded-lg p-2">
           <Sparkles className="h-5 w-5 text-white" />
         </div>
-        <h2 className="text-xl font-semibold">Video Input</h2>
+        <h2 className="text-xl font-semibold">Entrada de vídeo</h2>
       </div>
 
       <div className="w-full space-y-6">
         <div className="bg-muted/30 flex items-center justify-between rounded-lg p-4">
           <div>
-            <h3 className="font-medium">Bulk Mode</h3>
+            <h3 className="font-medium">Modo em lote</h3>
             <p className="text-muted-foreground text-sm">
-              Process multiple URLs simultaneously
+              Processe várias URLs ao mesmo tempo
             </p>
           </div>
           <Switch checked={bulkMode} onCheckedChange={setBulkMode} />
@@ -146,7 +146,7 @@ export function VideoInputSection() {
                 <span className="text-muted-foreground text-sm">
                   {urlType === 'playlist'
                     ? '1 playlist'
-                    : `${detectedUrls.length} URL${detectedUrls.length !== 1 ? 's' : ''} detected`}
+                    : `${detectedUrls.length} URL${detectedUrls.length !== 1 ? 's' : ''} detectada${detectedUrls.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
             </div>
@@ -156,7 +156,7 @@ export function VideoInputSection() {
         {detectedUrls.length > 0 && (
           <div className="w-full space-y-2">
             <h4 className="text-sm font-medium">
-              {urlType === 'playlist' ? 'Playlist URL:' : 'Detected URLs:'}
+              {urlType === 'playlist' ? 'URL da playlist:' : 'URLs detectadas:'}
             </h4>
             <div className="max-h-40 w-full space-y-2 overflow-y-auto">
               {detectedUrls.map((url, index) => (
@@ -184,10 +184,10 @@ export function VideoInputSection() {
         >
           <Upload className="mr-2 h-5 w-5" />
           {isProcessing
-            ? 'Processing...'
+            ? 'Processando...'
             : urlType === 'playlist'
-              ? 'Start Playlist Transcription'
-              : 'Start Transcription'}
+              ? 'Iniciar transcrição da playlist'
+              : 'Iniciar transcrição'}
         </Button>
       </div>
     </div>

@@ -27,12 +27,12 @@ export function TranscriptionJobActions({
     try {
       const detail = await fetchTranscriptionForExport(transcription.id)
       downloadTranscript(transcriptionToPayload(detail), format)
-      toast.success(`Downloaded ${format}`)
+      toast.success(`${format} baixado`)
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Failed to download transcript',
+          : 'Falha ao baixar a transcrição',
       )
     } finally {
       setPendingAction(null)
@@ -46,14 +46,14 @@ export function TranscriptionJobActions({
       const content = resolveTranscriptText(detail.content, detail.timestamps)
 
       if (!content) {
-        throw new Error('No transcript content available to copy')
+        throw new Error('Nenhum conteúdo de transcrição disponível para copiar')
       }
 
       await navigator.clipboard.writeText(content)
-      toast.success('Transcript copied to clipboard')
+      toast.success('Transcrição copiada para a área de transferência')
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to copy transcript',
+        error instanceof Error ? error.message : 'Falha ao copiar a transcrição',
       )
     } finally {
       setPendingAction(null)
@@ -93,7 +93,7 @@ export function TranscriptionJobActions({
         ) : (
           <Copy className="mr-1 h-3 w-3" />
         )}
-        Copy
+        Copiar
       </Button>
     </>
   )

@@ -39,16 +39,16 @@ export function NavUser({ user }: NavUserProps) {
           type="button"
           variant="ghost"
           className="h-9 gap-2 px-1.5 sm:px-2"
-          aria-label="Open user menu"
+          aria-label="Abrir menu do usuário"
         >
           <Avatar className="h-8 w-8 rounded-lg">
-            <AvatarImage src={user.avatar} alt={user.name || 'User'} />
+            <AvatarImage src={user.avatar} alt={user.name || 'Usuário'} />
             <AvatarFallback className="rounded-lg">
               {(user.name || 'U').charAt(0)}
             </AvatarFallback>
           </Avatar>
           <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">
-            {user.name || 'User'}
+            {user.name || 'Usuário'}
           </span>
           <ChevronsUpDown className="text-muted-foreground hidden size-4 sm:block" />
         </Button>
@@ -61,14 +61,14 @@ export function NavUser({ user }: NavUserProps) {
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
             <Avatar className="h-8 w-8 rounded-lg">
-              <AvatarImage src={user.avatar} alt={user.name || 'User'} />
+              <AvatarImage src={user.avatar} alt={user.name || 'Usuário'} />
               <AvatarFallback className="rounded-lg">
                 {(user.name || 'U').charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">
-                {user.name || 'User'}
+                {user.name || 'Usuário'}
               </span>
               <span className="truncate text-xs">{user.email}</span>
             </div>

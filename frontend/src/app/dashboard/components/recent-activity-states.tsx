@@ -31,7 +31,7 @@ export function ErrorState({ message }: ErrorStateProps) {
         <div className="bg-muted/50 mx-auto mb-4 w-fit rounded-full p-4">
           <XCircle className="h-8 w-8 text-red-500" />
         </div>
-        <p className="text-muted-foreground">Failed to load recent activity</p>
+        <p className="text-muted-foreground">Não foi possível carregar a atividade recente</p>
         <p className="text-muted-foreground text-sm">{message}</p>
       </div>
     </CardContent>

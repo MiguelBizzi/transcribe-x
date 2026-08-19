@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'TranscribeX',
   description:
-    'Transform entire YouTube channels, playlists, or multiple videos into accurate transcriptions. An academic demonstration for research, learning, and content workflows.',
+    'Transforme canais inteiros, playlists ou vários vídeos do YouTube em transcrições precisas. Uma demonstração acadêmica para pesquisa, aprendizado e fluxos de conteúdo.',
 }
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

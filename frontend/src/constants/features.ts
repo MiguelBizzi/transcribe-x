@@ -12,58 +12,58 @@ import {
 export const features = [
   {
     icon: List,
-    title: 'Bulk Transcription',
+    title: 'Transcrição em lote',
     description:
-      'Process entire YouTube channels, playlists, or multiple videos simultaneously. Save time with batch processing.',
-    highlight: 'Most Popular',
+      'Processe canais inteiros, playlists ou vários vídeos do YouTube ao mesmo tempo. Economize tempo com o processamento em lote.',
+    highlight: 'Mais popular',
   },
   {
     icon: Download,
-    title: 'Multiple Export Formats',
+    title: 'Vários formatos de exportação',
     description:
-      'Export transcriptions in TXT, PDF, DOCX, JSON, SRT, and VTT formats. Perfect for any workflow.',
+      'Exporte transcrições em TXT, PDF, DOCX, JSON, SRT e VTT. Ideal para qualquer fluxo de trabalho.',
     highlight: null,
   },
   {
     icon: GraduationCap,
-    title: 'Academic Demonstration',
+    title: 'Demonstração acadêmica',
     description:
-      'Built as an educational project to showcase transcription, automation, and export workflows—without billing or usage fees.',
+      'Projeto educacional para mostrar fluxos de transcrição, automação e exportação — sem cobrança nem taxas de uso.',
     highlight: null,
   },
   {
     icon: Zap,
-    title: 'Lightning Fast',
+    title: 'Super rápido',
     description:
-      'Advanced AI processing delivers accurate transcriptions in seconds, not minutes.',
+      'O processamento com IA entrega transcrições precisas em segundos, não em minutos.',
     highlight: null,
   },
   {
     icon: Shield,
-    title: 'Privacy & Security',
+    title: 'Privacidade e segurança',
     description:
-      'Your data is processed securely and never stored permanently. GDPR compliant.',
+      'Seus dados são processados com segurança e não ficam armazenados de forma permanente. Em conformidade com a LGPD.',
     highlight: null,
   },
   {
     icon: FileText,
-    title: '99%+ Accuracy',
+    title: 'Precisão de 99%+',
     description:
-      'State-of-the-art speech recognition technology ensures highly accurate transcriptions.',
+      'Tecnologia de reconhecimento de fala de ponta para transcrições altamente precisas.',
     highlight: null,
   },
   {
     icon: Users,
-    title: 'Team Collaboration',
+    title: 'Colaboração em equipe',
     description:
-      'Share transcriptions with your team. Perfect for research groups and classroom projects.',
+      'Compartilhe transcrições com o time. Perfeito para grupos de pesquisa e projetos em sala de aula.',
     highlight: null,
   },
   {
     icon: Globe,
-    title: 'Multi-Language Support',
+    title: 'Vários idiomas',
     description:
-      'Transcribe videos in 40+ languages with automatic language detection.',
+      'Transcreva vídeos em mais de 40 idiomas com detecção automática de idioma.',
     highlight: null,
   },
 ]

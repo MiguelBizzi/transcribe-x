@@ -8,7 +8,7 @@ export function RecentActivityHeader() {
         <div className="bg-primary rounded-lg p-2">
           <Clock className="h-4 w-4 text-white" />
         </div>
-        Recent Activity
+        Atividade recente
       </CardTitle>
     </CardHeader>
   )

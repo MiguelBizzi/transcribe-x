@@ -27,7 +27,7 @@ export function GoogleCallbackContent() {
 
         if (!code) {
           setStatus('error')
-          setErrorMessage('No authorization code received from Google')
+          setErrorMessage('Nenhum código de autorização recebido do Google')
           return
         }
 
@@ -48,7 +48,7 @@ export function GoogleCallbackContent() {
         setErrorMessage(
           error instanceof Error
             ? error.message
-            : 'Failed to authenticate with Google',
+            : 'Falha ao autenticar com o Google',
         )
       }
     }
@@ -61,9 +61,9 @@ export function GoogleCallbackContent() {
       <div className="from-background to-background/80 flex min-h-screen items-center justify-center bg-gradient-to-br p-4">
         <Card className="w-full max-w-md text-center">
           <CardHeader>
-            <CardTitle>Authenticating with Google</CardTitle>
+            <CardTitle>Autenticando com o Google</CardTitle>
             <CardDescription>
-              Please wait while we complete your authentication...
+              Aguarde enquanto concluímos sua autenticação...
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -83,11 +83,11 @@ export function GoogleCallbackContent() {
           <CardHeader>
             <CardTitle className="flex items-center justify-center gap-2">
               <CheckCircle className="h-6 w-6 text-green-600" />
-              Authentication Successful
+              Autenticação concluída
             </CardTitle>
             <CardDescription>
-              You have been successfully authenticated with Google. Redirecting
-              to dashboard...
+              Você foi autenticado com o Google. Redirecionando para o
+              painel...
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -106,19 +106,20 @@ export function GoogleCallbackContent() {
         <CardHeader>
           <CardTitle className="flex items-center justify-center gap-2">
             <XCircle className="h-6 w-6 text-red-600" />
-            Authentication Failed
+            Falha na autenticação
           </CardTitle>
           <CardDescription>{errorMessage}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Please try again or contact support if the problem persists.
+            Tente novamente ou entre em contato com o suporte se o problema
+            persistir.
           </p>
           <button
             onClick={() => router.push('/auth')}
             className="text-primary hover:text-primary/80 text-sm underline"
           >
-            Return to login page
+            Voltar para o login
           </button>
         </CardContent>
       </Card>

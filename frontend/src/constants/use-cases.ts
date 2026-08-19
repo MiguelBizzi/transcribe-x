@@ -10,38 +10,38 @@ import {
 export const useCases = [
   {
     icon: Brain,
-    title: 'AI & Machine Learning Training',
+    title: 'Treinamento de IA e machine learning',
     description:
-      'Build comprehensive datasets for training language models and AI systems with high-quality transcribed content from educational channels and tutorials.',
+      'Monte conjuntos de dados para treinar modelos de linguagem e sistemas de IA com conteúdo transcrito de canais educativos e tutoriais.',
   },
   {
     icon: Database,
-    title: 'Dataset Generation',
+    title: 'Geração de datasets',
     description:
-      'Create large-scale datasets for machine learning research by transcribing entire YouTube channels or playlists in minutes, not hours.',
+      'Crie conjuntos de dados em larga escala para pesquisa em machine learning transcrevendo canais ou playlists inteiras em minutos, não em horas.',
   },
   {
     icon: Search,
-    title: 'Academic & Market Research',
+    title: 'Pesquisa acadêmica e de mercado',
     description:
-      'Analyze trends, extract insights, and conduct research by transcribing interviews, webinars, conferences, and educational content at scale.',
+      'Analise tendências, extraia insights e pesquise em escala transcrevendo entrevistas, webinars, conferências e conteúdo educacional.',
   },
   {
     icon: FileText,
-    title: 'SEO Content Creation',
+    title: 'Criação de conteúdo SEO',
     description:
-      'Transform video content into SEO-optimized blog posts, articles, and web content to boost your search rankings and reach new audiences.',
+      'Transforme vídeos em posts de blog, artigos e conteúdo web otimizados para busca, ampliando o alcance e o ranqueamento.',
   },
   {
     icon: Subtitles,
-    title: 'Subtitle & Blog Generation',
+    title: 'Legendas e posts de blog',
     description:
-      'Quickly generate accurate subtitles for your videos or convert video content into engaging blog posts and social media content.',
+      'Gere legendas precisas para seus vídeos ou converta o conteúdo em posts de blog e materiais para redes sociais.',
   },
   {
     icon: Accessibility,
-    title: 'Accessibility Improvements',
+    title: 'Acessibilidade',
     description:
-      'Make video content accessible to deaf and hard-of-hearing audiences by providing accurate transcriptions and closed captions.',
+      'Torne o conteúdo em vídeo acessível para pessoas surdas ou com deficiência auditiva, com transcrições e legendas precisas.',
   },
 ]

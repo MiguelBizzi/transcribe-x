@@ -1,55 +1,55 @@
 export const testimonials = [
   {
     name: 'Sarah Chen',
-    role: 'AI Research Lead',
+    role: 'Líder de pesquisa em IA',
     company: 'TechCorp',
     content:
-      'TranscribeX has revolutionized our data collection process. We can now transcribe entire YouTube channels for training data in minutes instead of weeks. The accuracy is incredible.',
+      'O TranscribeX revolucionou nossa coleta de dados. Agora transcrevemos canais inteiros do YouTube para treinar modelos em minutos, não em semanas. A precisão é incrível.',
     rating: 5,
     avatar: 'SC',
   },
   {
     name: 'Marcus Rodriguez',
-    role: 'Content Creator',
+    role: 'Criador de conteúdo',
     company: 'EduTube',
     content:
-      'The bulk transcription feature is a game-changer. I can transcribe my entire course library and export to multiple formats for my students.',
+      'A transcrição em lote mudou o jogo. Consigo transcrever toda a biblioteca do curso e exportar em vários formatos para os alunos.',
     rating: 5,
     avatar: 'MR',
   },
   {
-    name: 'Dr. Emma Thompson',
-    role: 'Research Professor',
+    name: 'Dra. Emma Thompson',
+    role: 'Professora pesquisadora',
     company: 'Stanford',
     content:
-      'Perfect for academic research. The ability to transcribe entire playlists and export to JSON for analysis has saved our team hundreds of hours. High accuracy even with technical content.',
+      'Perfeito para pesquisa acadêmica. Transcrever playlists inteiras e exportar em JSON para análise economizou centenas de horas da equipe. Alta precisão mesmo com conteúdo técnico.',
     rating: 5,
     avatar: 'ET',
   },
   {
     name: 'James Park',
-    role: 'Data Analyst',
+    role: 'Analista de dados',
     company: 'MediaFlow',
     content:
-      'We use TranscribeX for market research, analyzing competitor content at scale. The multi-language support and batch processing capabilities are exactly what we needed.',
+      'Usamos o TranscribeX para pesquisa de mercado, analisando conteúdo de concorrentes em escala. O suporte a vários idiomas e o processamento em lote eram exatamente o que precisávamos.',
     rating: 5,
     avatar: 'JP',
   },
   {
     name: 'Lisa Martinez',
-    role: 'Podcast Producer',
+    role: 'Produtora de podcast',
     company: 'AudioFirst',
     content:
-      'Incredible tool for content repurposing. I can transcribe multiple episodes simultaneously and get perfectly formatted outputs for blog posts and social media content.',
+      'Ferramenta incrível para reaproveitar conteúdo. Transcrevo vários episódios ao mesmo tempo e recebo saídas bem formatadas para blog e redes sociais.',
     rating: 5,
     avatar: 'LM',
   },
   {
     name: 'Alex Kumar',
-    role: 'ML Engineer',
+    role: 'Engenheiro de ML',
     company: 'DataVault',
     content:
-      "We've used it in our data pipeline for continuous transcription of educational content. Reliable and fast.",
+      'Integramos à nossa pipeline para transcrição contínua de conteúdo educacional. Confiável e rápido.',
     rating: 5,
     avatar: 'AK',
   },

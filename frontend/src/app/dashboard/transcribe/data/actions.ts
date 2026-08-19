@@ -15,11 +15,11 @@ import { getTranscriptionById } from './transcriptions'
 import { getPlaylistTranscriptionById } from './playlist-transcriptions'
 
 const createTranscriptionSchema = z.object({
-  videoUrl: z.url('Invalid video URL'),
+  videoUrl: z.url('URL do vídeo inválida'),
 })
 
 const createPlaylistTranscriptionSchema = z.object({
-  playlistUrl: z.url('Invalid playlist URL'),
+  playlistUrl: z.url('URL da playlist inválida'),
 })
 
 export const createTranscriptionAction = actionClient
@@ -42,15 +42,15 @@ export const createTranscriptionAction = actionClient
         transcription: response.transcription,
       }
     } catch (error) {
-      let message = 'Failed to create transcription'
+      let message = 'Falha ao criar a transcrição'
 
       if (error instanceof Error) {
         if (error.message.includes('Video not found')) {
-          message = 'Video not found or not accessible'
+          message = 'Vídeo não encontrado ou inacessível'
         } else if (error.message.includes('Invalid YouTube URL')) {
-          message = 'Invalid YouTube URL provided'
+          message = 'URL do YouTube inválida'
         } else if (error.message.includes('already exists')) {
-          message = 'Transcription for this video already exists'
+          message = 'Já existe uma transcrição para este vídeo'
         } else {
           message = error.message
         }
@@ -84,13 +84,13 @@ export const createPlaylistTranscriptionAction = actionClient
         result: response.result,
       }
     } catch (error) {
-      let message = 'Failed to create playlist transcription'
+      let message = 'Falha ao criar a transcrição da playlist'
 
       if (error instanceof Error) {
         if (error.message.includes('Invalid YouTube playlist URL')) {
-          message = 'Invalid YouTube playlist URL provided'
+          message = 'URL da playlist do YouTube inválida'
         } else if (error.message.includes('No videos found')) {
-          message = 'No videos found in playlist'
+          message = 'Nenhum vídeo encontrado na playlist'
         } else {
           message = error.message
         }
@@ -112,7 +112,7 @@ export async function fetchPlaylistForExport(id: string) {
 }
 
 const reprocessTranscriptionSchema = z.object({
-  id: z.string().uuid('Invalid transcription ID'),
+  id: z.string().uuid('ID da transcrição inválido'),
 })
 
 export const reprocessTranscriptionAction = actionClient
@@ -146,7 +146,7 @@ export const reprocessTranscriptionAction = actionClient
         message:
           error instanceof Error
             ? error.message
-            : 'Failed to process transcription',
+            : 'Falha ao processar a transcrição',
       }
     }
   })

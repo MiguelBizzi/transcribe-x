@@ -15,9 +15,9 @@ export default async function Dashboard() {
   return (
     <div className="flex flex-1 flex-col px-6 py-8">
       <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold">Welcome back</h1>
+        <h1 className="mb-2 text-3xl font-bold">Bem-vindo de volta</h1>
         <p className="text-muted-foreground">
-          Transform YouTube content into searchable, actionable text
+          Transforme conteúdo do YouTube em texto pesquisável e acionável
         </p>
       </div>
 

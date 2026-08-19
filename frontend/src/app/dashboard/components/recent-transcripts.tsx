@@ -20,8 +20,8 @@ export async function RecentTranscripts() {
 
         {transcriptions.length === 0 ? (
           <EmptyState
-            title="No recent transcriptions"
-            description="Start by transcribing your first video!"
+            title="Nenhuma transcrição recente"
+            description="Comece transcrevendo o seu primeiro vídeo!"
           />
         ) : (
           <CardContent>
@@ -38,7 +38,7 @@ export async function RecentTranscripts() {
               {transcriptions.length > 5 && (
                 <div className="pt-4 text-center">
                   <Button variant="ghost" className="gap-2">
-                    View All Transcriptions
+                    Ver todas as transcrições
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -54,7 +54,7 @@ export async function RecentTranscripts() {
         <RecentActivityHeader />
         <ErrorState
           message={
-            error instanceof Error ? error.message : 'Please try again later'
+            error instanceof Error ? error.message : 'Tente novamente mais tarde'
           }
         />
       </Card>

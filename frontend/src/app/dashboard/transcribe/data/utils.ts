@@ -27,7 +27,7 @@ export const getUrlTypeInfo = (urlType: UrlType): UrlTypeInfo | null => {
     case 'video':
       return {
         icon: PlaySquare,
-        label: 'Single Video',
+        label: 'Vídeo único',
         color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
       }
     case 'playlist':
@@ -40,13 +40,13 @@ export const getUrlTypeInfo = (urlType: UrlType): UrlTypeInfo | null => {
     case 'channel':
       return {
         icon: Youtube,
-        label: 'Channel',
+        label: 'Canal',
         color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
       }
     case 'mixed':
       return {
         icon: Link,
-        label: 'Multiple URLs',
+        label: 'Várias URLs',
         color:
           'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
       }
@@ -64,7 +64,7 @@ export const getExportFormats = (): ExportFormat[] => [
 
 export const getBulkModePlaceholder = (bulkMode: boolean): string => {
   if (bulkMode) {
-    return 'Paste multiple YouTube URLs (one per line):\n\nhttps://youtube.com/watch?v=...\nhttps://youtube.com/playlist?list=...\nhttps://youtube.com/c/channelname'
+    return 'Cole várias URLs do YouTube (uma por linha):\n\nhttps://youtube.com/watch?v=...\nhttps://youtube.com/playlist?list=...\nhttps://youtube.com/c/nomedocanal'
   }
-  return 'Paste a YouTube URL:\n\n• Single video: https://youtube.com/watch?v=...\n• Playlist: https://youtube.com/playlist?list=...\n• Channel: https://youtube.com/c/channelname'
+  return 'Cole uma URL do YouTube:\n\n• Vídeo: https://youtube.com/watch?v=...\n• Playlist: https://youtube.com/playlist?list=...\n• Canal: https://youtube.com/c/nomedocanal'
 }

@@ -17,34 +17,35 @@ export function Hero() {
             <div className="space-y-4">
               <div className="bg-primary/10 text-primary inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium">
                 <CheckCircle className="h-4 w-4" />
-                Academic demonstration project
+                Projeto de demonstração acadêmica
               </div>
 
               <h1 className="text-4xl leading-tight font-bold md:text-5xl lg:text-6xl">
-                Transcribe YouTube Videos
+                Transcreva vídeos do YouTube
                 <span className="from-primary to-secondary bg-linear-to-br bg-clip-text text-transparent">
                   {' '}
-                  at Scale
+                  em escala
                 </span>
               </h1>
 
               <p className="text-muted-foreground text-xl leading-relaxed">
-                Transform entire YouTube channels, playlists, or multiple videos
-                into accurate transcriptions. Built for research, learning, and
-                portfolio demonstration—not commercial billing.
+                Transforme canais inteiros, playlists ou vários vídeos do
+                YouTube em transcrições precisas. Feito para pesquisa,
+                aprendizado e demonstração de portfólio — sem cobrança
+                comercial.
               </p>
             </div>
 
             <div className="flex flex-col gap-4 sm:flex-row">
               <Link href="/auth">
                 <Button variant="hero" size="xl" className="group">
-                  Get started
+                  Começar
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
               <Button variant="outline-hero" size="xl" className="group">
                 <Play className="h-5 w-5" />
-                Watch Demo
+                Ver demonstração
               </Button>
             </div>
 
@@ -52,19 +53,19 @@ export function Hero() {
               <div className="text-center">
                 <div className="text-2xl font-bold">50M+</div>
                 <div className="text-muted-foreground text-sm">
-                  Minutes Transcribed
+                  Minutos transcritos
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold">99.2%</div>
+                <div className="text-2xl font-bold">99,2%</div>
                 <div className="text-muted-foreground text-sm">
-                  Accuracy Rate
+                  Taxa de precisão
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold">15sec</div>
+                <div className="text-2xl font-bold">15s</div>
                 <div className="text-muted-foreground text-sm">
-                  Avg Processing
+                  Processamento médio
                 </div>
               </div>
             </div>
@@ -75,7 +76,7 @@ export function Hero() {
             <div className="shadow-hero relative overflow-hidden rounded-2xl">
               <Image
                 src={heroImage}
-                alt="YouTube video transcription dashboard"
+                alt="Painel de transcrição de vídeos do YouTube"
                 className="h-auto w-full"
               />
               <div className="from-primary/20 absolute inset-0 bg-gradient-to-t to-transparent" />
@@ -85,12 +86,12 @@ export function Hero() {
             <div className="shadow-foreground absolute -top-4 -right-4 animate-bounce rounded-lg bg-green-100 p-3">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-                <span className="text-sm font-medium">Processing...</span>
+                <span className="text-sm font-medium">Processando...</span>
               </div>
             </div>
 
             <div className="shadow-foreground absolute -bottom-4 -left-4 rounded-lg bg-white p-4">
-              <div className="text-muted-foreground text-xs">Export Ready</div>
+              <div className="text-muted-foreground text-xs">Pronto para exportar</div>
               <div className="font-medium">transcript.txt</div>
             </div>
           </div>

@@ -62,30 +62,30 @@ function MetricsList({ metrics }: { metrics: QualityMetrics }) {
   return (
     <div className="space-y-3">
       <MetricRow
-        label="Noise removed"
+        label="Ruído removido"
         value={formatPercent(metrics.noiseReductionRate)}
       />
       <MetricRow
-        label="Lexical diversity"
+        label="Diversidade lexical"
         value={formatPercent(metrics.lexicalDiversity)}
       />
       <MetricRow
-        label="Avg. sentence length"
-        value={`${metrics.avgSentenceLength} words`}
+        label="Tamanho médio das frases"
+        value={`${metrics.avgSentenceLength} palavras`}
       />
-      <MetricRow label="Hesitations removed" value={metrics.hesitationCount} />
-      <MetricRow label="Repetitions removed" value={metrics.repetitionCount} />
+      <MetricRow label="Hesitações removidas" value={metrics.hesitationCount} />
+      <MetricRow label="Repetições removidas" value={metrics.repetitionCount} />
       <MetricRow
-        label="Timestamp markers"
+        label="Marcadores de tempo"
         value={metrics.timestampMarkersRemoved}
       />
       <MetricRow
-        label="Language"
+        label="Idioma"
         value={metrics.detectedLanguage.toUpperCase()}
       />
       <MetricRow
-        label="Processed words"
-        value={`${metrics.processedWordCount.toLocaleString()} / ${metrics.originalWordCount.toLocaleString()}`}
+        label="Palavras processadas"
+        value={`${metrics.processedWordCount.toLocaleString('pt-BR')} / ${metrics.originalWordCount.toLocaleString('pt-BR')}`}
       />
     </div>
   )
@@ -111,22 +111,22 @@ export function QualityMetricsPanel({
       }
 
       if (result.validationErrors) {
-        throw new Error('Invalid transcription ID')
+        throw new Error('ID da transcrição inválido')
       }
 
       if (!result.data?.success) {
         throw new Error(
-          result.data?.message || 'Failed to process transcription',
+          result.data?.message || 'Falha ao processar a transcrição',
         )
       }
 
-      toast.success('Transcript processed successfully')
+      toast.success('Transcrição processada com sucesso')
       router.refresh()
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Failed to process transcription',
+          : 'Falha ao processar a transcrição',
       )
     } finally {
       setIsProcessing(false)
@@ -136,7 +136,7 @@ export function QualityMetricsPanel({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle>Quality Report</CardTitle>
+        <CardTitle>Relatório de qualidade</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         {metrics ? (
@@ -144,7 +144,7 @@ export function QualityMetricsPanel({
             <div className="space-y-2">
               <div className="flex items-end justify-between">
                 <span className="text-muted-foreground text-sm">
-                  Quality score
+                  Pontuação de qualidade
                 </span>
                 <span
                   className={cn(
@@ -164,7 +164,8 @@ export function QualityMetricsPanel({
           </>
         ) : (
           <p className="text-muted-foreground text-sm">
-            No quality metrics yet. Run post-processing to generate a report.
+            Ainda não há métricas de qualidade. Execute o pós-processamento
+            para gerar o relatório.
           </p>
         )}
 
@@ -177,7 +178,7 @@ export function QualityMetricsPanel({
           <RefreshCw
             className={cn('h-4 w-4', isProcessing && 'animate-spin')}
           />
-          {isProcessing ? 'Processing…' : 'Re-process'}
+          {isProcessing ? 'Processando…' : 'Reprocessar'}
         </Button>
       </CardContent>
     </Card>

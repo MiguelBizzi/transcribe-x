@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Calendar, Play, XCircle, CheckCircle } from 'lucide-react'
 import type { Transcription } from '../data/recent-activity'
 import { formatDateShort } from '@/utils/format-date'
+import { formatStatus } from '@/utils/format-status'
 
 interface RecentTranscriptCardProps {
   transcription: Transcription
@@ -35,7 +36,7 @@ export function RecentTranscriptCard({
   }
 
   const getStatusText = (status: string) => {
-    return status.toLowerCase().replace(/_/g, ' ')
+    return formatStatus(status)
   }
 
   return (
@@ -80,7 +81,7 @@ export function RecentTranscriptCard({
           </div>
           {transcription.wordCount && (
             <div className="flex items-center gap-1">
-              <span>{transcription.wordCount} words</span>
+              <span>{transcription.wordCount.toLocaleString('pt-BR')} palavras</span>
             </div>
           )}
           {transcription.duration && (

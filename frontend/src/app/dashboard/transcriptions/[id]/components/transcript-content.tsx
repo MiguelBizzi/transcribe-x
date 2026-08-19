@@ -21,25 +21,25 @@ export function TranscriptContent({ transcription }: TranscriptContentProps) {
   return (
     <Card className="min-w-0">
       <CardHeader className="pb-3">
-        <CardTitle>Transcript</CardTitle>
+        <CardTitle>Transcrição</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={defaultTab}>
           <TabsList>
-            <TabsTrigger value="raw">Raw</TabsTrigger>
+            <TabsTrigger value="raw">Original</TabsTrigger>
             <TabsTrigger value="clean" disabled={!hasClean}>
-              Clean
+              Processado
             </TabsTrigger>
           </TabsList>
           <TabsContent value="raw">
             <pre className="bg-muted/40 mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg p-4 text-sm leading-relaxed">
-              {rawText || 'No raw transcript content available.'}
+              {rawText || 'Nenhum conteúdo original disponível.'}
             </pre>
           </TabsContent>
           <TabsContent value="clean">
             <pre className="bg-muted/40 mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg p-4 text-sm leading-relaxed">
               {cleanText ||
-                'This transcription has not been post-processed yet.'}
+                'Esta transcrição ainda não foi pós-processada.'}
             </pre>
           </TabsContent>
         </Tabs>

@@ -76,7 +76,7 @@ export default function Auth() {
       },
       onError: () => {
         loginForm.setError('password', {
-          message: 'An error occurred while logging in, please try again.',
+          message: 'Ocorreu um erro ao fazer login. Tente novamente.',
         })
       },
     },
@@ -87,7 +87,7 @@ export default function Auth() {
     {
       onSuccess: (data) => {
         if (data.data.success) {
-          toast.success(`${data.data.message} Please sign in to continue`)
+          toast.success(`${data.data.message} Faça login para continuar`)
           setActiveTab('signin')
         } else {
           registerForm.setError('password', {
@@ -98,7 +98,7 @@ export default function Auth() {
       onError: () => {
         registerForm.setError('password', {
           message:
-            'An error occurred while creating an account, please try again.',
+            'Ocorreu um erro ao criar a conta. Tente novamente.',
         })
       },
     },
@@ -147,9 +147,9 @@ export default function Auth() {
 
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>Welcome</CardTitle>
+            <CardTitle>Bem-vindo</CardTitle>
             <CardDescription>
-              Sign in to your account or create a new one
+              Entre na sua conta ou crie uma nova
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -162,8 +162,8 @@ export default function Auth() {
               }
             >
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="signin">Entrar</TabsTrigger>
+                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
               </TabsList>
 
               <div className="mt-6">
@@ -181,13 +181,13 @@ export default function Auth() {
                   ) : (
                     <GoogleIcon />
                   )}
-                  Continue with Google
+                  Continuar com o Google
                 </Button>
               </div>
 
               <div className="mt-6 flex items-center">
                 <Separator className="flex-1" />
-                <span className="text-muted-foreground px-3 text-xs">OR</span>
+                <span className="text-muted-foreground px-3 text-xs">OU</span>
                 <Separator className="flex-1" />
               </div>
 
@@ -202,10 +202,10 @@ export default function Auth() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>E-mail</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="your@email.com"
+                              placeholder="seu@email.com"
                               type="email"
                               disabled={isLoginLoading}
                               {...field}
@@ -220,7 +220,7 @@ export default function Auth() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Password</FormLabel>
+                          <FormLabel>Senha</FormLabel>
                           <FormControl>
                             <Input
                               placeholder="••••••••"
@@ -242,7 +242,7 @@ export default function Auth() {
                       {isLoginLoading && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Sign In
+                      Entrar
                     </Button>
                   </form>
                 </Form>
@@ -259,10 +259,10 @@ export default function Auth() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Full Name</FormLabel>
+                          <FormLabel>Nome completo</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Your full name"
+                              placeholder="Seu nome completo"
                               type="text"
                               disabled={isRegisterLoading}
                               {...field}
@@ -277,10 +277,10 @@ export default function Auth() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>E-mail</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="your@email.com"
+                              placeholder="seu@email.com"
                               type="email"
                               disabled={isRegisterLoading}
                               {...field}
@@ -295,7 +295,7 @@ export default function Auth() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Password</FormLabel>
+                          <FormLabel>Senha</FormLabel>
                           <FormControl>
                             <Input
                               placeholder="••••••••"
@@ -317,7 +317,7 @@ export default function Auth() {
                       {isRegisterLoading && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Create Account
+                      Criar conta
                     </Button>
                   </form>
                 </Form>
@@ -329,7 +329,7 @@ export default function Auth() {
                 href="/"
                 className="text-muted-foreground hover:text-foreground text-sm transition-colors"
               >
-                ← Back to homepage
+                ← Voltar à página inicial
               </Link>
             </div>
           </CardContent>

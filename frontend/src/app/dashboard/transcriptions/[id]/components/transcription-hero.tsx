@@ -13,6 +13,7 @@ import {
 import type { TranscriptionDetail } from '@/app/dashboard/transcribe/data/types'
 import { formatDateShort } from '@/utils/format-date'
 import { formatDuration } from '@/utils/format-duration'
+import { formatStatus, formatTranscriptionType } from '@/utils/format-status'
 
 interface TranscriptionHeroProps {
   transcription: TranscriptionDetail
@@ -55,11 +56,13 @@ export function TranscriptionHero({ transcription }: TranscriptionHeroProps) {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={statusColor(transcription.status)}>
-              {transcription.status}
+              {formatStatus(transcription.status)}
             </Badge>
-            <Badge variant="outline">{transcription.type}</Badge>
+            <Badge variant="outline">
+              {formatTranscriptionType(transcription.type)}
+            </Badge>
             {transcription.isProcessed && (
-              <Badge variant="secondary">Processed</Badge>
+              <Badge variant="secondary">Processado</Badge>
             )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
@@ -83,7 +86,7 @@ export function TranscriptionHero({ transcription }: TranscriptionHeroProps) {
             {transcription.wordCount ? (
               <span className="flex items-center gap-1">
                 <FileText className="h-3.5 w-3.5" />
-                {transcription.wordCount.toLocaleString()} words
+                {transcription.wordCount.toLocaleString('pt-BR')} palavras
               </span>
             ) : null}
           </div>
@@ -93,7 +96,7 @@ export function TranscriptionHero({ transcription }: TranscriptionHeroProps) {
           <Button asChild variant="outline" size="sm">
             <Link href={youtubeUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="h-4 w-4" />
-              Open on YouTube
+              Abrir no YouTube
             </Link>
           </Button>
         </div>

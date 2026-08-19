@@ -32,7 +32,7 @@ export function sanitizeFilename(title: string): string {
     .replace(/-+/g, '-')
     .slice(0, 80)
 
-  return slug || 'transcript'
+  return slug || 'transcricao'
 }
 
 export function resolveTranscriptText(
@@ -150,7 +150,7 @@ function buildPlainText(payload: TranscriptExportPayload): string {
   }
 
   lines.push('')
-  lines.push(payload.content || 'No transcript content available.')
+  lines.push(payload.content || 'Nenhum conteúdo de transcrição disponível.')
 
   return lines.join('\n')
 }
@@ -502,7 +502,7 @@ export function createTranscriptFile(
   format: ExportFormat,
 ): { blob: Blob; filename: string } {
   if (!payload.content) {
-    throw new Error('No transcript content available to download')
+    throw new Error('Nenhum conteúdo de transcrição disponível para baixar')
   }
 
   const filename = `${sanitizeFilename(payload.title)}.${format.toLowerCase()}`
@@ -533,7 +533,7 @@ export function createTranscriptFile(
         }),
       }
     default:
-      throw new Error(`Unsupported export format: ${format}`)
+      throw new Error(`Formato de exportação não suportado: ${format}`)
   }
 }
 

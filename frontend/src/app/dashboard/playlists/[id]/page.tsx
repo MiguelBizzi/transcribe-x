@@ -11,6 +11,7 @@ import {
   formatQualityScore,
   getQualityTone,
 } from '@/utils/format-duration'
+import { formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
 import { PlaylistExportPanel } from './components/playlist-export-panel'
 import { PlaylistVideoList } from './components/playlist-video-list'
@@ -58,7 +59,7 @@ export default async function PlaylistDetailPage({
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm"
         >
           <ArrowLeft className="h-4 w-4" />
-          My Transcriptions
+          Minhas transcrições
         </Link>
       </div>
 
@@ -79,7 +80,7 @@ export default async function PlaylistDetailPage({
 
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-4">
           <div className="space-y-3">
-            <Badge variant="outline">{playlist.status}</Badge>
+            <Badge variant="outline">{formatStatus(playlist.status)}</Badge>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
               {playlist.title}
             </h1>
@@ -89,7 +90,7 @@ export default async function PlaylistDetailPage({
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" />
-                {playlist.videoCount} videos
+                {playlist.videoCount} vídeos
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
@@ -101,7 +102,7 @@ export default async function PlaylistDetailPage({
               <div className="max-w-sm space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Average quality score
+                    Pontuação média de qualidade
                   </span>
                   <span className={cn('font-semibold', scoreClass(avgScore))}>
                     {formatQualityScore(avgScore)}
@@ -114,7 +115,7 @@ export default async function PlaylistDetailPage({
           <Button asChild variant="outline" size="sm" className="w-fit">
             <Link href={youtubeUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="h-4 w-4" />
-              Open on YouTube
+              Abrir no YouTube
             </Link>
           </Button>
         </div>

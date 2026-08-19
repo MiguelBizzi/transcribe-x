@@ -14,8 +14,8 @@ export function Footer() {
               <span className="text-xl font-bold">TranscribeX</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              Scale your YouTube transcription with AI-powered accuracy. Perfect
-              for creators, researchers, and data professionals.
+              Transcreva vídeos do YouTube com precisão de IA. Ideal para
+              criadores, pesquisadores e profissionais de dados.
             </p>
             <div className="flex gap-3">
               <a
@@ -41,21 +41,21 @@ export function Footer() {
 
           {/* Product */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Product</h3>
+            <h3 className="font-semibold">Produto</h3>
             <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Features
+                  Recursos
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  API Documentation
+                  Documentação da API
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Changelog
+                  Histórico de mudanças
                 </a>
               </li>
             </ul>
@@ -63,16 +63,16 @@ export function Footer() {
 
           {/* Support */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Support</h3>
+            <h3 className="font-semibold">Suporte</h3>
             <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Help Center
+                  Central de ajuda
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Contact Us
+                  Fale conosco
                 </a>
               </li>
               <li>
@@ -82,7 +82,7 @@ export function Footer() {
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Community
+                  Comunidade
                 </a>
               </li>
             </ul>
@@ -90,26 +90,26 @@ export function Footer() {
 
           {/* Legal */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Legal</h3>
+            <h3 className="font-semibold">Jurídico</h3>
             <ul className="text-muted-foreground space-y-2 text-sm">
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Privacy Policy
+                  Política de privacidade
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Terms of Service
+                  Termos de uso
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  Cookie Policy
+                  Política de cookies
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-foreground transition-colors">
-                  GDPR
+                  LGPD
                 </a>
               </li>
             </ul>
@@ -118,10 +118,10 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t pt-8 md:flex-row">
           <p className="text-muted-foreground text-sm">
-            © 2024 TranscribeX. All rights reserved.
+            © 2024 TranscribeX. Todos os direitos reservados.
           </p>
           <p className="text-muted-foreground text-sm">
-            Made with ❤️ for creators worldwide
+            Feito com ❤️ para criadores no mundo todo
           </p>
         </div>
       </div>

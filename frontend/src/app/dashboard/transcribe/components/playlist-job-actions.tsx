@@ -24,12 +24,12 @@ export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
     try {
       const detail = await fetchPlaylistForExport(playlist.id)
       downloadTranscript(playlistToPayload(detail), format)
-      toast.success(`Downloaded ${format}`)
+      toast.success(`${format} baixado`)
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Failed to download playlist transcript',
+          : 'Falha ao baixar a transcrição da playlist',
       )
     } finally {
       setPendingAction(null)
@@ -43,16 +43,16 @@ export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
       const content = playlistToPayload(detail).content
 
       if (!content) {
-        throw new Error('No transcript content available to copy')
+        throw new Error('Nenhum conteúdo de transcrição disponível para copiar')
       }
 
       await navigator.clipboard.writeText(content)
-      toast.success('Playlist transcript copied to clipboard')
+      toast.success('Transcrição da playlist copiada para a área de transferência')
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Failed to copy playlist transcript',
+          : 'Falha ao copiar a transcrição da playlist',
       )
     } finally {
       setPendingAction(null)
@@ -92,7 +92,7 @@ export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
         ) : (
           <Copy className="mr-1 h-3 w-3" />
         )}
-        Copy
+        Copiar
       </Button>
     </>
   )

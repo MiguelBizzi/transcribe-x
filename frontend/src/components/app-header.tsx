@@ -21,12 +21,12 @@ import type { User } from '@/services/auth-service'
 
 const items = [
   {
-    title: 'Dashboard',
+    title: 'Início',
     url: '/dashboard',
     icon: Home,
   },
   {
-    title: 'Transcribe',
+    title: 'Transcrever',
     url: '/dashboard/transcribe',
     icon: FileText,
   },
@@ -61,7 +61,7 @@ export function AppHeader({ user }: AppHeaderProps) {
 
   const avatarUrl =
     user.avatar ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=random`
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'Usuário')}&background=random`
 
   return (
     <header className="bg-background/80 sticky top-0 z-50 border-b backdrop-blur-md">
@@ -73,7 +73,7 @@ export function AppHeader({ user }: AppHeaderProps) {
               variant="ghost"
               size="icon"
               className="md:hidden"
-              aria-label="Open navigation"
+              aria-label="Abrir navegação"
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -84,10 +84,10 @@ export function AppHeader({ user }: AppHeaderProps) {
                 <BrandMark />
               </SheetTitle>
               <SheetDescription className="sr-only">
-                Navigate between dashboard pages
+                Navegar entre as páginas do painel
               </SheetDescription>
             </SheetHeader>
-            <nav aria-label="Mobile" className="flex flex-col gap-1 p-3">
+            <nav aria-label="Menu" className="flex flex-col gap-1 p-3">
               {items.map((item) => {
                 const active = isActivePath(pathname, item.url)
 
@@ -121,7 +121,7 @@ export function AppHeader({ user }: AppHeaderProps) {
         </Link>
 
         <nav
-          aria-label="Main"
+          aria-label="Principal"
           className="ml-2 hidden items-center rounded-lg bg-muted/50 p-1 md:flex"
         >
           {items.map((item) => {

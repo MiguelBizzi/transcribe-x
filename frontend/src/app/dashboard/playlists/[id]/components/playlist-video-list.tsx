@@ -14,6 +14,7 @@ import {
   transcriptionToPayload,
 } from '@/app/dashboard/transcribe/data/export-transcript'
 import { formatQualityScore, getQualityTone } from '@/utils/format-duration'
+import { formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
 
 interface PlaylistVideoListProps {
@@ -48,12 +49,12 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
         transcriptionToPayload(detail, { useProcessed: detail.isProcessed }),
         'TXT',
       )
-      toast.success('Downloaded TXT')
+      toast.success('TXT baixado')
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Failed to download transcript',
+          : 'Falha ao baixar a transcrição',
       )
     } finally {
       setPendingId(null)
@@ -65,7 +66,7 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
       <Card>
         <CardContent className="py-10 text-center">
           <p className="text-muted-foreground text-sm">
-            No videos were transcribed for this playlist.
+            Nenhum vídeo foi transcrito nesta playlist.
           </p>
         </CardContent>
       </Card>
@@ -75,7 +76,7 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Videos</CardTitle>
+        <CardTitle>Vídeos</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {videos.map((video, index) => (
@@ -104,7 +105,7 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
               <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
                 <span>
                   {video.wordCount
-                    ? `${video.wordCount.toLocaleString()} words`
+                    ? `${video.wordCount.toLocaleString('pt-BR')} palavras`
                     : '—'}
                 </span>
                 {video.qualityMetrics && (
@@ -114,18 +115,18 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
                       scoreClass(video.qualityMetrics.qualityScore),
                     )}
                   >
-                    Score {formatQualityScore(video.qualityMetrics.qualityScore)}
+                    Pontuação {formatQualityScore(video.qualityMetrics.qualityScore)}
                   </span>
                 )}
               </div>
             </div>
             <Badge variant="secondary" className="hidden sm:flex">
               {statusIcon(video.status)}
-              {video.status}
+              {formatStatus(video.status)}
             </Badge>
             <div className="flex items-center gap-2">
               <Button asChild size="sm" variant="outline">
-                <Link href={`/dashboard/transcriptions/${video.id}`}>View</Link>
+                <Link href={`/dashboard/transcriptions/${video.id}`}>Ver</Link>
               </Button>
               <Button
                 size="sm"

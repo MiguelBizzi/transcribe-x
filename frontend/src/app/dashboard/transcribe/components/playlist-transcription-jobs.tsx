@@ -13,6 +13,7 @@ import {
 import { getPlaylistTranscriptions } from '../data/playlist-transcriptions'
 import { PlaylistJobActions } from './playlist-job-actions'
 import Link from 'next/link'
+import { formatStatus } from '@/utils/format-status'
 
 const getStatusIconSafe = (status: string) => {
   switch (status.toUpperCase()) {
@@ -70,10 +71,10 @@ export async function PlaylistTranscriptionJobs() {
           <CardContent className="pt-6">
             <div className="py-8 text-center">
               <h3 className="text-muted-foreground text-lg font-medium">
-                No playlist transcriptions yet
+                Nenhuma transcrição de playlist ainda
               </h3>
               <p className="text-muted-foreground mt-2 text-sm">
-                Start by transcribing your first playlist!
+                Comece transcrevendo a sua primeira playlist!
               </p>
             </div>
           </CardContent>
@@ -89,10 +90,10 @@ export async function PlaylistTranscriptionJobs() {
           <div className="mb-6 flex w-full items-center justify-between">
             <div className="flex items-center gap-2">
               <PlaySquare className="h-6 w-6 text-blue-500" />
-              <h2 className="text-2xl font-bold">Playlist Transcriptions</h2>
+              <h2 className="text-2xl font-bold">Transcrições de playlist</h2>
             </div>
             <Badge variant="outline" className="text-sm">
-              {completedCount} / {playlists.length} completed
+              {completedCount} / {playlists.length} concluídas
             </Badge>
           </div>
 
@@ -123,22 +124,22 @@ export async function PlaylistTranscriptionJobs() {
                           <div className="text-muted-foreground flex items-center gap-4 text-sm">
                             <span className="flex items-center gap-1">
                               <Users className="h-3 w-3" />
-                              {playlist.videoCount} videos
+                              {playlist.videoCount} vídeos
                             </span>
                             <span>
-                              Duration: {formatDuration(playlist.totalDuration)}
+                              Duração: {formatDuration(playlist.totalDuration)}
                             </span>
                           </div>
                         </div>
                         <Badge className={getStatusColorSafe(playlist.status)}>
-                          {playlist.status}
+                          {formatStatus(playlist.status)}
                         </Badge>
                       </div>
 
                       {isProcessing(playlist.status) && (
                         <div className="w-full space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span>Processing playlist...</span>
+                            <span>Processando playlist...</span>
                             <span>{playlist.progress ?? 0}%</span>
                           </div>
                           <Progress
@@ -146,7 +147,7 @@ export async function PlaylistTranscriptionJobs() {
                             className="h-2"
                           />
                           <p className="text-muted-foreground text-xs">
-                            Processing {playlist.videoCount} videos...
+                            Processando {playlist.videoCount} vídeos...
                           </p>
                         </div>
                       )}
@@ -162,7 +163,7 @@ export async function PlaylistTranscriptionJobs() {
                   {isError(playlist.status) && (
                     <Button variant="outline" size="sm" className="text-xs">
                       <RefreshCw className="mr-1 h-3 w-3" />
-                      Retry
+                      Tentar novamente
                     </Button>
                   )}
                 </div>
@@ -178,12 +179,12 @@ export async function PlaylistTranscriptionJobs() {
         <CardContent className="pt-6">
           <div className="py-8 text-center">
             <h3 className="text-lg font-medium text-red-600">
-              Error loading playlist transcriptions
+              Erro ao carregar transcrições de playlist
             </h3>
             <p className="text-muted-foreground mt-2 text-sm">
               {error instanceof Error
                 ? error.message
-                : 'Please try again later'}
+                : 'Tente novamente mais tarde'}
             </p>
           </div>
         </CardContent>

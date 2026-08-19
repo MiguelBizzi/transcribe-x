@@ -38,12 +38,12 @@ export function PlaylistExportPanel({ playlist }: PlaylistExportPanelProps) {
         playlistToPayload(playlist, { useProcessed: source === 'clean' }),
         format,
       )
-      toast.success(`Downloaded ${format}`)
+      toast.success(`${format} baixado`)
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Failed to download playlist transcript',
+          : 'Falha ao baixar a transcrição da playlist',
       )
     } finally {
       setPendingFormat(null)
@@ -53,7 +53,7 @@ export function PlaylistExportPanel({ playlist }: PlaylistExportPanelProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle>Download all</CardTitle>
+        <CardTitle>Baixar tudo</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
@@ -61,9 +61,9 @@ export function PlaylistExportPanel({ playlist }: PlaylistExportPanelProps) {
           onValueChange={(value) => setSource(value as 'raw' | 'clean')}
         >
           <TabsList>
-            <TabsTrigger value="raw">Raw</TabsTrigger>
+            <TabsTrigger value="raw">Original</TabsTrigger>
             <TabsTrigger value="clean" disabled={!canExportClean}>
-              Clean
+              Processado
             </TabsTrigger>
           </TabsList>
         </Tabs>

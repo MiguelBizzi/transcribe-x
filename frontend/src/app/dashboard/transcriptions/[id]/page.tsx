@@ -31,7 +31,7 @@ export default async function TranscriptionDetailPage({
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm"
         >
           <ArrowLeft className="h-4 w-4" />
-          My Transcriptions
+          Minhas transcrições
         </Link>
       </div>
 

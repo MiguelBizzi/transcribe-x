@@ -18,22 +18,22 @@ export function Header() {
             href="#features"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            Features
+            Recursos
           </a>
           <a
             href="#testimonials"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            Reviews
+            Depoimentos
           </a>
         </nav>
 
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/auth">Sign In</Link>
+            <Link href="/auth">Entrar</Link>
           </Button>
           <Button variant="default" size="sm" asChild>
-            <Link href="/auth">Get started</Link>
+            <Link href="/auth">Começar</Link>
           </Button>
         </div>
       </div>

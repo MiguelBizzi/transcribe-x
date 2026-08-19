@@ -6,12 +6,12 @@ export function UseCases() {
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-16 max-w-3xl text-center">
           <h2 className="mb-6 text-3xl font-bold md:text-4xl">
-            What You Can Do With It
+            O que você pode fazer
           </h2>
           <p className="text-muted-foreground text-xl leading-relaxed">
-            From AI training to content creation, our transcription tool
-            empowers professionals across industries to unlock the value hidden
-            in video content.
+            Do treinamento de IA à criação de conteúdo, nossa ferramenta de
+            transcrição ajuda profissionais de várias áreas a extrair o valor
+            escondido em vídeos.
           </p>
         </div>
 
@@ -40,10 +40,10 @@ export function UseCases() {
 
         <div className="mt-16 text-center">
           <div className="bg-primary/10 border-primary/20 inline-flex items-center gap-2 rounded-full border px-6 py-3">
-            <span className="text-sm font-medium">💡 Pro Tip:</span>
+            <span className="text-sm font-medium">💡 Dica:</span>
             <span className="text-muted-foreground text-sm">
-              Combine multiple export formats to maximize your content&apos;s
-              potential across different platforms
+              Combine vários formatos de exportação para aproveitar melhor o
+              conteúdo em diferentes plataformas
             </span>
           </div>
         </div>

@@ -8,15 +8,15 @@ export function Testimonials() {
       <div className="container mx-auto px-4">
         <div className="mb-16 space-y-4 text-center">
           <h2 className="text-3xl font-bold md:text-4xl">
-            Trusted by
+            Confiado por
             <span className="from-primary to-secondary bg-linear-to-br bg-clip-text text-transparent">
               {' '}
-              professionals worldwide
+              profissionais no mundo todo
             </span>
           </h2>
           <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
-            Join thousands of AI trainers, researchers, and content creators who
-            trust TranscribeX
+            Junte-se a milhares de pesquisadores, criadores de conteúdo e
+            profissionais de IA que confiam no TranscribeX
           </p>
 
           <div className="mt-6 flex items-center justify-center gap-2">
@@ -29,7 +29,7 @@ export function Testimonials() {
               ))}
             </div>
             <span className="text-muted-foreground ml-2 text-sm">
-              4.9/5 from 2,000+ reviews
+              4,9/5 em mais de 2.000 avaliações
             </span>
           </div>
         </div>
@@ -66,7 +66,7 @@ export function Testimonials() {
                   <div>
                     <div className="font-semibold">{testimonial.name}</div>
                     <div className="text-muted-foreground text-sm">
-                      {testimonial.role} at {testimonial.company}
+                      {testimonial.role} em {testimonial.company}
                     </div>
                   </div>
                 </div>

@@ -23,7 +23,7 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let errorMessage = 'An error occurred'
+    let errorMessage = 'Ocorreu um erro'
     let errorCode: string | undefined
 
     try {
@@ -75,7 +75,7 @@ export async function apiFetch<T>(
       if (typeof window !== 'undefined') {
         window.location.href = '/auth'
       }
-      throw new ApiError('Authentication failed', 401)
+      throw new ApiError('Falha na autenticação', 401)
     }
 
     return handleResponse<T>(response)
@@ -84,7 +84,7 @@ export async function apiFetch<T>(
       throw error
     }
     throw new ApiError(
-      error instanceof Error ? error.message : 'Network error',
+      error instanceof Error ? error.message : 'Erro de rede',
       500,
     )
   }

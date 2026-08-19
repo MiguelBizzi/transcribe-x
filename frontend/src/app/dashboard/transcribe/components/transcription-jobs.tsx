@@ -6,6 +6,7 @@ import { CheckCircle, RefreshCw, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getTranscriptions } from '../data/transcriptions'
 import { TranscriptionJobActions } from './transcription-job-actions'
+import { formatStatus } from '@/utils/format-status'
 
 const getStatusIconSafe = (status: string) => {
   switch (status) {
@@ -48,10 +49,10 @@ export async function TranscriptionJobs() {
           <CardContent className="pt-6">
             <div className="py-8 text-center">
               <h3 className="text-muted-foreground text-lg font-medium">
-                No transcriptions yet
+                Nenhuma transcrição ainda
               </h3>
               <p className="text-muted-foreground mt-2 text-sm">
-                Start by transcribing your first video!
+                Comece transcrevendo o seu primeiro vídeo!
               </p>
             </div>
           </CardContent>
@@ -67,9 +68,9 @@ export async function TranscriptionJobs() {
       <Card className="hover:shadow-elegant transition-all duration-300">
         <CardContent className="pt-6">
           <div className="mb-6 flex w-full items-center justify-between">
-            <h2 className="text-2xl font-bold">Transcription Jobs</h2>
+            <h2 className="text-2xl font-bold">Trabalhos de transcrição</h2>
             <Badge variant="outline" className="text-sm">
-              {completedCount} / {transcriptions.length} completed
+              {completedCount} / {transcriptions.length} concluídos
             </Badge>
           </div>
 
@@ -111,19 +112,19 @@ export async function TranscriptionJobs() {
                         <Badge
                           className={getStatusColorSafe(transcription.status)}
                         >
-                          {transcription.status}
+                          {formatStatus(transcription.status)}
                         </Badge>
                       </div>
 
                       {transcription.status === 'processing' && (
                         <div className="w-full space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span>Processing...</span>
+                            <span>Processando...</span>
                             <span>50%</span>
                           </div>
                           <Progress value={50} className="h-2" />
                           <p className="text-muted-foreground text-xs">
-                            Estimated time: Processing...
+                            Tempo estimado: processando...
                           </p>
                         </div>
                       )}
@@ -139,7 +140,7 @@ export async function TranscriptionJobs() {
                   {transcription.status === 'ERROR' && (
                     <Button variant="outline" size="sm" className="text-xs">
                       <RefreshCw className="mr-1 h-3 w-3" />
-                      Retry
+                      Tentar novamente
                     </Button>
                   )}
                 </div>
@@ -155,12 +156,12 @@ export async function TranscriptionJobs() {
         <CardContent className="pt-6">
           <div className="py-8 text-center">
             <h3 className="text-lg font-medium text-red-600">
-              Error loading transcriptions
+              Erro ao carregar transcrições
             </h3>
             <p className="text-muted-foreground mt-2 text-sm">
               {error instanceof Error
                 ? error.message
-                : 'Please try again later'}
+                : 'Tente novamente mais tarde'}
             </p>
           </div>
         </CardContent>

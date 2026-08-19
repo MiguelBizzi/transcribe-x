@@ -7,15 +7,15 @@ export function Features() {
       <div className="container mx-auto px-4">
         <div className="mb-16 space-y-4 text-center">
           <h2 className="text-3xl font-bold md:text-4xl">
-            Everything you need for
+            Tudo o que você precisa para
             <span className="from-primary to-secondary bg-linear-to-br bg-clip-text text-transparent">
               {' '}
-              YouTube transcription
+              transcrição no YouTube
             </span>
           </h2>
           <p className="text-muted-foreground mx-auto max-w-2xl text-lg">
-            Powerful features designed for AI trainers, researchers, content
-            creators, and data professionals
+            Recursos pensados para treinar IA, pesquisar, criar conteúdo e
+            trabalhar com dados
           </p>
         </div>
 
