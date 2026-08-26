@@ -9,6 +9,8 @@ export interface QualityMetrics {
     processedWordCount: number
     noiseReductionRate: number
     lexicalDiversity: number
+    mtldScore: number
+    mattrScore: number
     avgSentenceLength: number
     hesitationCount: number
     repetitionCount: number
@@ -112,6 +114,8 @@ export class TextQualityService {
                 qualityMetrics:
                     result.qualityMetrics as unknown as Prisma.InputJsonValue,
                 isProcessed: true,
+                mtldScore: result.qualityMetrics.mtldScore,
+                mattrScore: result.qualityMetrics.mattrScore,
             },
         })
 

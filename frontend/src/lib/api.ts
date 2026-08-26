@@ -54,8 +54,11 @@ export async function apiFetch<T>(
   const url = `${apiConfig.baseUrl}${endpoint}`
   const { accessToken } = await getAuthTokens()
 
+  const hasBody =
+    options.body !== undefined && options.body !== null && options.body !== ''
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers as Record<string, string>),
   }
 

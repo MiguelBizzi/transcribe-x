@@ -4,7 +4,7 @@ import type { ZodTypeProvider } from '@fastify/type-provider-zod'
 import { z } from 'zod'
 import { getCurrentUser } from '../../middlewares/auth'
 import { BadRequestError } from '../_errors/bad-request-error'
-import { qualityMetricsSchema } from './quality-metrics-schema'
+import { qualityMetricsSchema, llmCurationDataSchema } from './quality-metrics-schema'
 
 export async function getTranscriptionById(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().get(
@@ -43,6 +43,10 @@ export async function getTranscriptionById(app: FastifyInstance) {
                             processedContent: z.string().nullable(),
                             qualityMetrics: qualityMetricsSchema.nullable(),
                             isProcessed: z.boolean(),
+                            llmCurationScore: z.number().nullable(),
+                            llmCurationData: llmCurationDataSchema.nullable(),
+                            deduplicationStatus: z.string(),
+                            dedupGroupId: z.string().nullable(),
                             createdAt: z.string(),
                             updatedAt: z.string(),
                         }),
@@ -84,6 +88,10 @@ export async function getTranscriptionById(app: FastifyInstance) {
                     processedContent: true,
                     qualityMetrics: true,
                     isProcessed: true,
+                    llmCurationScore: true,
+                    llmCurationData: true,
+                    deduplicationStatus: true,
+                    dedupGroupId: true,
                     createdAt: true,
                     updatedAt: true,
                 },
@@ -113,6 +121,13 @@ export async function getTranscriptionById(app: FastifyInstance) {
                             typeof qualityMetricsSchema
                         > | null) ?? null,
                     isProcessed: transcription.isProcessed,
+                    llmCurationScore: transcription.llmCurationScore,
+                    llmCurationData:
+                        (transcription.llmCurationData as z.infer<
+                            typeof llmCurationDataSchema
+                        > | null) ?? null,
+                    deduplicationStatus: transcription.deduplicationStatus,
+                    dedupGroupId: transcription.dedupGroupId,
                     createdAt: transcription.createdAt.toISOString(),
                     updatedAt: transcription.updatedAt.toISOString(),
                 },

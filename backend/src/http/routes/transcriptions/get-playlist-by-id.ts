@@ -47,6 +47,8 @@ export async function getPlaylistById(app: FastifyInstance) {
                                     qualityMetrics:
                                         qualityMetricsSchema.nullable(),
                                     isProcessed: z.boolean(),
+                                    llmCurationScore: z.number().nullable(),
+                                    deduplicationStatus: z.string(),
                                     videoIndex: z.number().nullable(),
                                     createdAt: z.string(),
                                 }),
@@ -115,6 +117,10 @@ export async function getPlaylistById(app: FastifyInstance) {
                                         typeof qualityMetricsSchema
                                     > | null) ?? null,
                                 isProcessed: transcription.isProcessed,
+                                llmCurationScore:
+                                    transcription.llmCurationScore,
+                                deduplicationStatus:
+                                    transcription.deduplicationStatus,
                                 videoIndex: transcription.videoIndex,
                                 createdAt:
                                     transcription.createdAt.toISOString(),

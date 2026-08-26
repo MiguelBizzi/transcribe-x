@@ -243,6 +243,62 @@ def sentence_length_score(avg_sentence_length: float) -> float:
     return max(0.0, 1.0 - ((avg_sentence_length - 25) / 40))
 
 
+def _mtld_direction(words: List[str], threshold: float) -> float:
+    """One-pass MTLD (McCarthy & Jarvis, 2010)."""
+    if not words:
+        return 0.0
+
+    types: Set[str] = set()
+    token_count = 0
+    factor_count = 0.0
+
+    for word in words:
+        token_count += 1
+        types.add(word.lower())
+        ttr = len(types) / token_count
+        if ttr <= threshold:
+            factor_count += 1.0
+            types = set()
+            token_count = 0
+
+    if token_count > 0:
+        ttr = len(types) / token_count
+        if ttr < 1.0:
+            factor_count += (1.0 - ttr) / (1.0 - threshold)
+
+    if factor_count == 0.0:
+        return float(len(words))
+
+    return len(words) / factor_count
+
+
+def compute_mtld(words: List[str], threshold: float = 0.72) -> float:
+    """Bidirectional MTLD, robust to text length (McCarthy & Jarvis, 2010)."""
+    if len(words) < 10:
+        return 0.0
+    forward = _mtld_direction(words, threshold)
+    backward = _mtld_direction(list(reversed(words)), threshold)
+    return (forward + backward) / 2.0
+
+
+def compute_mattr(words: List[str], window: int = 50) -> float:
+    """Moving Average Type-Token Ratio (Covington & McFall, 2010)."""
+    count = len(words)
+    if count == 0:
+        return 0.0
+
+    lowered = [word.lower() for word in words]
+    if count < window:
+        return len(set(lowered)) / count
+
+    ttr_sum = 0.0
+    windows = count - window + 1
+    for index in range(windows):
+        chunk = lowered[index : index + window]
+        ttr_sum += len(set(chunk)) / window
+    return ttr_sum / windows
+
+
 def compute_metrics(
     original_text: str,
     processed_text: str,
@@ -265,6 +321,8 @@ def compute_metrics(
     lexical_diversity = (
         len(unique_tokens) / processed_count if processed_count > 0 else 0.0
     )
+    mtld_score = compute_mtld(processed_words)
+    mattr_score = compute_mattr(processed_words)
 
     sentences = [
         s.strip()
@@ -276,7 +334,7 @@ def compute_metrics(
     )
 
     quality_score = (
-        lexical_diversity * 0.4
+        mattr_score * 0.4
         + (1.0 - min(noise_reduction, 1.0)) * 0.4
         + sentence_length_score(avg_sentence_length) * 0.2
     )
@@ -286,6 +344,8 @@ def compute_metrics(
         "processedWordCount": processed_count,
         "noiseReductionRate": round(noise_reduction, 4),
         "lexicalDiversity": round(lexical_diversity, 4),
+        "mtldScore": round(mtld_score, 4),
+        "mattrScore": round(mattr_score, 4),
         "avgSentenceLength": round(avg_sentence_length, 2),
         "hesitationCount": hesitation_count,
         "repetitionCount": repetition_count,

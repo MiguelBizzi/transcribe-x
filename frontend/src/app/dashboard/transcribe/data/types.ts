@@ -3,6 +3,8 @@ export interface QualityMetrics {
   processedWordCount: number
   noiseReductionRate: number
   lexicalDiversity: number
+  mtldScore?: number
+  mattrScore?: number
   avgSentenceLength: number
   hesitationCount: number
   repetitionCount: number
@@ -10,6 +12,19 @@ export interface QualityMetrics {
   detectedLanguage: string
   processingDurationMs: number
   qualityScore: number
+}
+
+export type CurationRecommendation = 'sft_example' | 'pretraining' | 'discard'
+
+export interface LlmCurationData {
+  coherence: number
+  richness: number
+  factuality: number
+  overall: number
+  recommendation: CurationRecommendation
+  rationale: string
+  provider: string
+  model: string
 }
 
 export interface TranscriptionJob {
@@ -48,6 +63,10 @@ export interface TranscriptionDetail extends Transcription {
   processedContent: string | null
   qualityMetrics: QualityMetrics | null
   isProcessed: boolean
+  llmCurationScore: number | null
+  llmCurationData: LlmCurationData | null
+  deduplicationStatus: string
+  dedupGroupId: string | null
 }
 
 export type ExportFormat = 'TXT' | 'PDF' | 'DOCX' | 'JSON'
@@ -141,6 +160,8 @@ export interface PlaylistVideoTranscription {
   processedContent: string | null
   qualityMetrics: QualityMetrics | null
   isProcessed: boolean
+  llmCurationScore: number | null
+  deduplicationStatus: string
   videoIndex: number | null
   createdAt: string
 }

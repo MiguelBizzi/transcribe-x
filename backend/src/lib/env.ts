@@ -22,6 +22,15 @@ const envSchema = z.object({
     YOUTUBE_API_KEY: z.string(),
     // JWT Configuration
     JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+    // LLM-assisted curation
+    CURATION_LLM_PROVIDER: z.enum(['openai', 'ollama']).default('openai'),
+    OPENAI_API_KEY: z.string().optional(),
+    OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+    OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
+    OLLAMA_MODEL: z.string().default('llama3'),
+    // Near-duplicate detection
+    DEDUP_JACCARD_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
+    DEDUP_NGRAM_SIZE: z.coerce.number().int().min(1).max(10).default(3),
 })
 
 const envData = envSchema.safeParse(process.env)

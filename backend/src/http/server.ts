@@ -18,6 +18,7 @@ import auth from './middlewares/auth'
 import { authRoutes } from './routes/auth'
 import { recentActivityRoutes } from './routes/recent-activity'
 import { transcriptionRoutes } from './routes/transcriptions'
+import { exportRoutes } from './routes/exports'
 import { cleanupJobs } from '@/jobs/cleanup-jobs'
 
 const app = fastify().withTypeProvider<ZodTypeProvider>()
@@ -83,6 +84,7 @@ app.register(auth)
 app.register(authRoutes)
 app.register(recentActivityRoutes)
 app.register(transcriptionRoutes)
+app.register(exportRoutes)
 
 app.listen({ port: env.SERVER_PORT }).then(() => {
     console.log('Server is running on port', env.SERVER_PORT)

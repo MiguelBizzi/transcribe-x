@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api'
 import type {
   CreateTranscriptionRequest,
   CreateTranscriptionResponse,
+  LlmCurationData,
   PlaylistTranscriptionRequest,
   PlaylistTranscriptionResponse,
   QualityMetrics,
@@ -147,6 +148,160 @@ export const reprocessTranscriptionAction = actionClient
           error instanceof Error
             ? error.message
             : 'Falha ao processar a transcrição',
+      }
+    }
+  })
+
+const curateTranscriptionSchema = z.object({
+  id: z.string().uuid('ID da transcrição inválido'),
+})
+
+export const curateTranscriptionAction = actionClient
+  .inputSchema(curateTranscriptionSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        transcription: {
+          id: string
+          llmCurationScore: number
+          llmCurationData: LlmCurationData
+        }
+      }>(`/transcriptions/${id}/curate`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/transcriptions/${id}`)
+      revalidatePath('/dashboard/playlists')
+
+      return {
+        success: true,
+        message: response.message,
+        transcription: response.transcription,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao curar a transcrição',
+      }
+    }
+  })
+
+const deduplicateTranscriptionSchema = z.object({
+  id: z.string().uuid('ID da transcrição inválido'),
+})
+
+export const deduplicateTranscriptionAction = actionClient
+  .inputSchema(deduplicateTranscriptionSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        sentencesRemoved: number
+      }>(`/transcriptions/${id}/deduplicate`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/transcriptions/${id}`)
+
+      return {
+        success: true,
+        message: response.message,
+        sentencesRemoved: response.sentencesRemoved,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao deduplicar a transcrição',
+      }
+    }
+  })
+
+const deduplicatePlaylistSchema = z.object({
+  id: z.string().uuid('ID da playlist inválido'),
+})
+
+export const deduplicatePlaylistAction = actionClient
+  .inputSchema(deduplicatePlaylistSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        keptCount: number
+        duplicateCount: number
+      }>(`/transcriptions/playlists/${id}/deduplicate`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/playlists/${id}`)
+      revalidatePath('/dashboard/transcribe')
+
+      return {
+        success: true,
+        message: response.message,
+        keptCount: response.keptCount,
+        duplicateCount: response.duplicateCount,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao deduplicar a playlist',
+      }
+    }
+  })
+
+const fineTuningExportSchema = z.object({
+  scope: z.enum(['playlist', 'user']),
+  playlistId: z.string().uuid().optional(),
+  dataset: z.enum(['raw', 'processed', 'curated']),
+  format: z.enum(['jsonl', 'csv', 'json']),
+  includeDuplicates: z.boolean().optional(),
+})
+
+export const exportFineTuningAction = actionClient
+  .inputSchema(fineTuningExportSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const params = new URLSearchParams({
+        scope: parsedInput.scope,
+        dataset: parsedInput.dataset,
+        format: parsedInput.format,
+        includeDuplicates: parsedInput.includeDuplicates ? 'true' : 'false',
+      })
+
+      if (parsedInput.playlistId) {
+        params.set('playlistId', parsedInput.playlistId)
+      }
+
+      const response = await apiFetch<{
+        filename: string
+        mimeType: string
+        recordCount: number
+        skippedDuplicates: number
+        skippedDiscarded: number
+        content: string
+      }>(`/exports/fine-tuning?${params.toString()}`)
+
+      return {
+        success: true,
+        ...response,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao exportar o dataset de fine-tuning',
       }
     }
   })

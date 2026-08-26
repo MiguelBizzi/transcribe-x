@@ -245,6 +245,8 @@ export class PlaylistTranscriptionService {
                         processedContent: true,
                         qualityMetrics: true,
                         isProcessed: true,
+                        llmCurationScore: true,
+                        deduplicationStatus: true,
                         videoIndex: true,
                         createdAt: true,
                     },

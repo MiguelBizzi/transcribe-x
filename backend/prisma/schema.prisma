@@ -48,6 +48,12 @@ model Transcription {
     processedContent    String?             @map("processed_content")
     qualityMetrics      Json?               @map("quality_metrics")
     isProcessed         Boolean             @default(false) @map("is_processed")
+    mtldScore           Float?              @map("mtld_score")
+    mattrScore          Float?              @map("mattr_score")
+    llmCurationScore    Float?              @map("llm_curation_score")
+    llmCurationData     Json?               @map("llm_curation_data")
+    deduplicationStatus String              @default("pending") @map("deduplication_status")
+    dedupGroupId        String?             @map("dedup_group_id")
     isPlaylistVideo     Boolean             @default(false) @map("is_playlist_video")
     playlistId          String?             @map("playlist_id")
     videoIndex          Int?                @map("video_index")
@@ -61,6 +67,8 @@ model Transcription {
     @@index([createdAt])
     @@index([userId, createdAt])
     @@index([playlistId])
+    @@index([deduplicationStatus])
+    @@index([dedupGroupId])
     @@map("transcriptions")
 }
 

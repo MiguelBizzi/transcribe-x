@@ -118,6 +118,12 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
                     Pontuação {formatQualityScore(video.qualityMetrics.qualityScore)}
                   </span>
                 )}
+                {video.deduplicationStatus === 'duplicate' && (
+                  <Badge variant="outline">Duplicata</Badge>
+                )}
+                {typeof video.llmCurationScore === 'number' && (
+                  <span>LLM {formatQualityScore(video.llmCurationScore)}</span>
+                )}
               </div>
             </div>
             <Badge variant="secondary" className="hidden sm:flex">

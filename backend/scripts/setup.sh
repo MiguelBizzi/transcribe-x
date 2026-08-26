@@ -37,6 +37,8 @@ fi
 
 chmod +x youtube_transcript.py
 chmod +x text_processor.py
+chmod +x deduplicator.py
+chmod +x llm_curator.py
 
 echo "🧪 Testing the transcript service..."
 python3 youtube_transcript.py test123

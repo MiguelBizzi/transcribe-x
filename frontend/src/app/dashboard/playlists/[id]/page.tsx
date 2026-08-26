@@ -14,6 +14,7 @@ import {
 import { formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
 import { PlaylistExportPanel } from './components/playlist-export-panel'
+import { PlaylistCurationPanel } from './components/playlist-curation-panel'
 import { PlaylistVideoList } from './components/playlist-video-list'
 
 interface PlaylistDetailPageProps {
@@ -122,6 +123,7 @@ export default async function PlaylistDetailPage({
       </div>
 
       <PlaylistExportPanel playlist={playlist} />
+      <PlaylistCurationPanel playlist={playlist} />
       <PlaylistVideoList videos={playlist.transcriptions} />
     </div>
   )
