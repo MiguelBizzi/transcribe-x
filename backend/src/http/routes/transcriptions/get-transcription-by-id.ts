@@ -4,7 +4,7 @@ import type { ZodTypeProvider } from '@fastify/type-provider-zod'
 import { z } from 'zod'
 import { getCurrentUser } from '../../middlewares/auth'
 import { BadRequestError } from '../_errors/bad-request-error'
-import { qualityMetricsSchema, llmCurationDataSchema } from './quality-metrics-schema'
+import { qualityMetricsSchema, llmCurationDataSchema, rewriteDataSchema } from './quality-metrics-schema'
 
 export async function getTranscriptionById(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().get(
@@ -47,6 +47,14 @@ export async function getTranscriptionById(app: FastifyInstance) {
                             llmCurationData: llmCurationDataSchema.nullable(),
                             deduplicationStatus: z.string(),
                             dedupGroupId: z.string().nullable(),
+                            rewrittenContent: z.string().nullable(),
+                            rewriteMode: z.enum(['pretraining', 'sft']).nullable(),
+                            rewriteData: rewriteDataSchema.nullable(),
+                            rewrittenQualityMetrics:
+                                qualityMetricsSchema.nullable(),
+                            rewrittenLlmCurationScore: z.number().nullable(),
+                            rewrittenLlmCurationData:
+                                llmCurationDataSchema.nullable(),
                             createdAt: z.string(),
                             updatedAt: z.string(),
                         }),
@@ -92,6 +100,12 @@ export async function getTranscriptionById(app: FastifyInstance) {
                     llmCurationData: true,
                     deduplicationStatus: true,
                     dedupGroupId: true,
+                    rewrittenContent: true,
+                    rewriteMode: true,
+                    rewriteData: true,
+                    rewrittenQualityMetrics: true,
+                    rewrittenLlmCurationScore: true,
+                    rewrittenLlmCurationData: true,
                     createdAt: true,
                     updatedAt: true,
                 },
@@ -128,6 +142,26 @@ export async function getTranscriptionById(app: FastifyInstance) {
                         > | null) ?? null,
                     deduplicationStatus: transcription.deduplicationStatus,
                     dedupGroupId: transcription.dedupGroupId,
+                    rewrittenContent: transcription.rewrittenContent,
+                    rewriteMode:
+                        (transcription.rewriteMode as
+                            | 'pretraining'
+                            | 'sft'
+                            | null) ?? null,
+                    rewriteData:
+                        (transcription.rewriteData as z.infer<
+                            typeof rewriteDataSchema
+                        > | null) ?? null,
+                    rewrittenQualityMetrics:
+                        (transcription.rewrittenQualityMetrics as z.infer<
+                            typeof qualityMetricsSchema
+                        > | null) ?? null,
+                    rewrittenLlmCurationScore:
+                        transcription.rewrittenLlmCurationScore,
+                    rewrittenLlmCurationData:
+                        (transcription.rewrittenLlmCurationData as z.infer<
+                            typeof llmCurationDataSchema
+                        > | null) ?? null,
                     createdAt: transcription.createdAt.toISOString(),
                     updatedAt: transcription.updatedAt.toISOString(),
                 },

@@ -17,7 +17,7 @@ interface PlaylistCurationPanelProps {
   playlist: PlaylistDetail
 }
 
-type Dataset = 'raw' | 'processed' | 'curated'
+type Dataset = 'raw' | 'processed' | 'curated' | 'rewritten'
 type ExportFormat = 'jsonl' | 'csv' | 'json'
 
 function triggerDownload(filename: string, mimeType: string, content: string) {
@@ -36,11 +36,13 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
   const router = useRouter()
   const [isDeduplicating, setIsDeduplicating] = useState(false)
   const [dataset, setDataset] = useState<Dataset>(
-    playlist.transcriptions.some((video) => video.llmCurationScore != null)
-      ? 'curated'
-      : playlist.transcriptions.some((video) => video.isProcessed)
-        ? 'processed'
-        : 'raw',
+    playlist.transcriptions.some((video) => video.rewrittenContent?.trim())
+      ? 'rewritten'
+      : playlist.transcriptions.some((video) => video.llmCurationScore != null)
+        ? 'curated'
+        : playlist.transcriptions.some((video) => video.isProcessed)
+          ? 'processed'
+          : 'raw',
   )
   const [format, setFormat] = useState<ExportFormat>('jsonl')
   const [isExporting, setIsExporting] = useState(false)
@@ -149,6 +151,7 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
               <TabsTrigger value="raw">Bruto</TabsTrigger>
               <TabsTrigger value="processed">Processado</TabsTrigger>
               <TabsTrigger value="curated">Curado</TabsTrigger>
+              <TabsTrigger value="rewritten">Reescrito</TabsTrigger>
             </TabsList>
           </Tabs>
           <Tabs

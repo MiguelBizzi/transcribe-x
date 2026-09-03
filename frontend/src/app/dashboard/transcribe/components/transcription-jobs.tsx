@@ -6,7 +6,10 @@ import { CheckCircle, RefreshCw, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getTranscriptions } from '../data/transcriptions'
 import { TranscriptionJobActions } from './transcription-job-actions'
+import { PlaylistJobsAccordion } from './playlist-jobs-accordion'
 import { formatStatus } from '@/utils/format-status'
+import { cn } from '@/lib/utils'
+import type { Transcription } from '../data/types'
 
 const getStatusIconSafe = (status: string) => {
   switch (status) {
@@ -38,6 +41,140 @@ const getStatusColorSafe = (status: string): string => {
   }
 }
 
+type JobGroup =
+  | { kind: 'video'; transcription: Transcription }
+  | {
+      kind: 'playlist'
+      playlistId: string
+      title: string
+      thumbnail: string | null
+      videos: Transcription[]
+    }
+
+function groupTranscriptionJobs(
+  transcriptions: Transcription[],
+): JobGroup[] {
+  const videosByPlaylist = new Map<string, Transcription[]>()
+
+  for (const transcription of transcriptions) {
+    if (!transcription.playlistId || !transcription.playlist) continue
+    const group = videosByPlaylist.get(transcription.playlistId) ?? []
+    group.push(transcription)
+    videosByPlaylist.set(transcription.playlistId, group)
+  }
+
+  for (const videos of videosByPlaylist.values()) {
+    videos.sort((a, b) => (a.videoIndex ?? 0) - (b.videoIndex ?? 0))
+  }
+
+  const seenPlaylists = new Set<string>()
+  const groups: JobGroup[] = []
+
+  for (const transcription of transcriptions) {
+    const playlistId = transcription.playlistId
+    const playlist = transcription.playlist
+
+    if (!playlistId || !playlist) {
+      groups.push({ kind: 'video', transcription })
+      continue
+    }
+
+    if (seenPlaylists.has(playlistId)) continue
+
+    seenPlaylists.add(playlistId)
+    const videos = videosByPlaylist.get(playlistId) ?? [transcription]
+    groups.push({
+      kind: 'playlist',
+      playlistId,
+      title: playlist.title,
+      thumbnail: playlist.thumbnail ?? videos[0]?.thumbnail ?? null,
+      videos,
+    })
+  }
+
+  return groups
+}
+
+function TranscriptionJobCard({
+  transcription,
+  nested = false,
+}: {
+  transcription: Transcription
+  nested?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'w-full rounded-lg p-6 transition-colors',
+        nested
+          ? 'bg-background hover:bg-muted/60'
+          : 'bg-muted/30 hover:bg-muted/50',
+      )}
+    >
+      <div className="flex w-full items-start gap-4">
+        <Link
+          href={`/dashboard/transcriptions/${transcription.id}`}
+          className="flex min-w-0 flex-1 items-start gap-4"
+        >
+          <div className="relative flex-shrink-0">
+            <img
+              src={
+                transcription.thumbnail ||
+                'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'
+              }
+              alt={transcription.title}
+              className="h-16 w-24 rounded-md object-cover"
+            />
+            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20">
+              {getStatusIconSafe(transcription.status)}
+            </div>
+          </div>
+
+          <div className="w-full flex-1 space-y-3">
+            <div className="flex w-full items-start justify-between">
+              <div>
+                <h3 className="font-semibold">{transcription.title}</h3>
+                <p className="text-muted-foreground truncate text-sm">
+                  {transcription.youtubeId}
+                </p>
+              </div>
+              <Badge className={getStatusColorSafe(transcription.status)}>
+                {formatStatus(transcription.status)}
+              </Badge>
+            </div>
+
+            {transcription.status === 'processing' && (
+              <div className="w-full space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Processando...</span>
+                  <span>50%</span>
+                </div>
+                <Progress value={50} className="h-2" />
+                <p className="text-muted-foreground text-xs">
+                  Tempo estimado: processando...
+                </p>
+              </div>
+            )}
+          </div>
+        </Link>
+      </div>
+
+      <div className="flex w-full items-center gap-2 pt-4">
+        {transcription.status === 'COMPLETED' && (
+          <TranscriptionJobActions transcription={transcription} />
+        )}
+
+        {transcription.status === 'ERROR' && (
+          <Button variant="outline" size="sm" className="text-xs">
+            <RefreshCw className="mr-1 h-3 w-3" />
+            Tentar novamente
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export async function TranscriptionJobs() {
   try {
     const data = await getTranscriptions()
@@ -63,6 +200,7 @@ export async function TranscriptionJobs() {
     const completedCount = transcriptions.filter(
       (t) => t.status === 'COMPLETED',
     ).length
+    const jobGroups = groupTranscriptionJobs(transcriptions)
 
     return (
       <Card className="hover:shadow-elegant transition-all duration-300">
@@ -75,77 +213,39 @@ export async function TranscriptionJobs() {
           </div>
 
           <div className="grid w-full gap-4">
-            {transcriptions.map((transcription) => (
-              <div
-                key={transcription.id}
-                className="bg-muted/30 hover:bg-muted/50 w-full rounded-lg p-6 transition-colors"
-              >
-                <div className="flex w-full items-start gap-4">
-                  <Link
-                    href={`/dashboard/transcriptions/${transcription.id}`}
-                    className="flex min-w-0 flex-1 items-start gap-4"
-                  >
-                    <div className="relative flex-shrink-0">
-                      <img
-                        src={
-                          transcription.thumbnail ||
-                          'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'
-                        }
-                        alt={transcription.title}
-                        className="h-16 w-24 rounded-md object-cover"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20">
-                        {getStatusIconSafe(transcription.status)}
-                      </div>
-                    </div>
+            {jobGroups.map((group) => {
+              if (group.kind === 'video') {
+                return (
+                  <TranscriptionJobCard
+                    key={group.transcription.id}
+                    transcription={group.transcription}
+                  />
+                )
+              }
 
-                    <div className="w-full flex-1 space-y-3">
-                      <div className="flex w-full items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">
-                            {transcription.title}
-                          </h3>
-                          <p className="text-muted-foreground truncate text-sm">
-                            {transcription.youtubeId}
-                          </p>
-                        </div>
-                        <Badge
-                          className={getStatusColorSafe(transcription.status)}
-                        >
-                          {formatStatus(transcription.status)}
-                        </Badge>
-                      </div>
+              const playlistCompleted = group.videos.filter(
+                (video) => video.status === 'COMPLETED',
+              ).length
 
-                      {transcription.status === 'processing' && (
-                        <div className="w-full space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Processando...</span>
-                            <span>50%</span>
-                          </div>
-                          <Progress value={50} className="h-2" />
-                          <p className="text-muted-foreground text-xs">
-                            Tempo estimado: processando...
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                </div>
-
-                <div className="flex w-full items-center gap-2 pt-4">
-                  {transcription.status === 'COMPLETED' && (
-                    <TranscriptionJobActions transcription={transcription} />
-                  )}
-
-                  {transcription.status === 'ERROR' && (
-                    <Button variant="outline" size="sm" className="text-xs">
-                      <RefreshCw className="mr-1 h-3 w-3" />
-                      Tentar novamente
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+              return (
+                <PlaylistJobsAccordion
+                  key={group.playlistId}
+                  title={group.title}
+                  thumbnail={group.thumbnail}
+                  playlistHref={`/dashboard/playlists/${group.playlistId}`}
+                  videoCount={group.videos.length}
+                  completedCount={playlistCompleted}
+                >
+                  {group.videos.map((video) => (
+                    <TranscriptionJobCard
+                      key={video.id}
+                      transcription={video}
+                      nested
+                    />
+                  ))}
+                </PlaylistJobsAccordion>
+              )
+            })}
           </div>
         </CardContent>
       </Card>

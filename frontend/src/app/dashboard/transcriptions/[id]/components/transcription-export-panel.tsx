@@ -20,14 +20,17 @@ interface TranscriptionExportPanelProps {
   transcription: TranscriptionDetail
 }
 
+type ExportSource = 'raw' | 'clean' | 'rewritten'
+
 export function TranscriptionExportPanel({
   transcription,
 }: TranscriptionExportPanelProps) {
-  const [source, setSource] = useState<'raw' | 'clean'>(
-    transcription.isProcessed ? 'clean' : 'raw',
+  const canExportClean = Boolean(transcription.processedContent?.trim())
+  const canExportRewritten = Boolean(transcription.rewrittenContent?.trim())
+  const [source, setSource] = useState<ExportSource>(
+    canExportRewritten ? 'rewritten' : transcription.isProcessed ? 'clean' : 'raw',
   )
   const [pendingFormat, setPendingFormat] = useState<ExportFormat | null>(null)
-  const canExportClean = Boolean(transcription.processedContent?.trim())
 
   const handleDownload = (format: ExportFormat) => {
     setPendingFormat(format)
@@ -35,6 +38,7 @@ export function TranscriptionExportPanel({
       downloadTranscript(
         transcriptionToPayload(transcription, {
           useProcessed: source === 'clean',
+          useRewritten: source === 'rewritten',
         }),
         format,
       )
@@ -58,12 +62,15 @@ export function TranscriptionExportPanel({
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
           value={source}
-          onValueChange={(value) => setSource(value as 'raw' | 'clean')}
+          onValueChange={(value) => setSource(value as ExportSource)}
         >
           <TabsList>
             <TabsTrigger value="raw">Original</TabsTrigger>
             <TabsTrigger value="clean" disabled={!canExportClean}>
               Processado
+            </TabsTrigger>
+            <TabsTrigger value="rewritten" disabled={!canExportRewritten}>
+              Reescrito
             </TabsTrigger>
           </TabsList>
         </Tabs>

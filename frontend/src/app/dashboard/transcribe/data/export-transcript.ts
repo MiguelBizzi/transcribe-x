@@ -55,31 +55,44 @@ export function resolveTranscriptText(
 
 export function transcriptionToPayload(
   transcription: TranscriptionDetail,
-  options?: { useProcessed?: boolean },
+  options?: { useProcessed?: boolean; useRewritten?: boolean },
 ): TranscriptExportPayload {
+  const useRewritten = Boolean(
+    options?.useRewritten && transcription.rewrittenContent?.trim(),
+  )
   const useProcessed = Boolean(
-    options?.useProcessed && transcription.processedContent?.trim(),
+    !useRewritten &&
+      options?.useProcessed &&
+      transcription.processedContent?.trim(),
   )
 
   return {
     title: transcription.title,
     youtubeId: transcription.youtubeId,
-    content: useProcessed
-      ? transcription.processedContent!.trim()
-      : resolveTranscriptText(
-          transcription.content,
-          transcription.timestamps,
-        ),
-    timestamps: useProcessed ? null : transcription.timestamps,
+    content: useRewritten
+      ? transcription.rewrittenContent!.trim()
+      : useProcessed
+        ? transcription.processedContent!.trim()
+        : resolveTranscriptText(
+            transcription.content,
+            transcription.timestamps,
+          ),
+    timestamps: useProcessed || useRewritten ? null : transcription.timestamps,
     language: transcription.language,
     duration: transcription.duration,
-    wordCount: useProcessed
+    wordCount: useProcessed || useRewritten
       ? transcription.qualityMetrics?.processedWordCount ??
         transcription.wordCount
       : transcription.wordCount,
     extra: {
       isProcessed: transcription.isProcessed,
-      exportSource: useProcessed ? 'processed' : 'raw',
+      exportSource: useRewritten
+        ? 'rewritten'
+        : useProcessed
+          ? 'processed'
+          : 'raw',
+      rewriteMode: transcription.rewriteMode,
+      rewriteData: transcription.rewriteData,
       qualityMetrics: transcription.qualityMetrics,
     },
   }

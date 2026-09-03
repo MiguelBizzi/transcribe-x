@@ -40,6 +40,49 @@ export class LlmCurationService {
         this.timeout = 120000
     }
 
+    async curateText(
+        text: string,
+        title: string,
+        languageCode?: string | null,
+    ): Promise<LlmCurationData> {
+        if (!text.trim()) {
+            throw new Error('Text is required for curation')
+        }
+
+        const response = await executePythonScript<
+            {
+                text: string
+                title: string
+                language_code: string | null
+                provider: string
+                openai_api_key?: string
+                openai_model: string
+                ollama_base_url: string
+                ollama_model: string
+            },
+            PythonCurationResponse
+        >(
+            this.scriptPath,
+            {
+                text,
+                title,
+                language_code: languageCode || null,
+                provider: env.CURATION_LLM_PROVIDER,
+                openai_api_key: env.OPENAI_API_KEY,
+                openai_model: env.OPENAI_MODEL,
+                ollama_base_url: env.OLLAMA_BASE_URL,
+                ollama_model: env.OLLAMA_MODEL,
+            },
+            { timeout: this.timeout },
+        )
+
+        if (!response.success || !response.curation) {
+            throw new Error(response.error || 'LLM curation failed')
+        }
+
+        return response.curation
+    }
+
     async curateTranscription(
         transcriptionId: string,
         userId: string,
@@ -68,54 +111,26 @@ export class LlmCurationService {
             throw new Error('Transcription has no content to curate')
         }
 
-        const response = await executePythonScript<
-            {
-                text: string
-                title: string
-                language_code: string | null
-                provider: string
-                openai_api_key?: string
-                openai_model: string
-                ollama_base_url: string
-                ollama_model: string
-            },
-            PythonCurationResponse
-        >(
-            this.scriptPath,
-            {
-                text,
-                title: transcription.title,
-                language_code: transcription.language,
-                provider: env.CURATION_LLM_PROVIDER,
-                openai_api_key: env.OPENAI_API_KEY,
-                openai_model: env.OPENAI_MODEL,
-                ollama_base_url: env.OLLAMA_BASE_URL,
-                ollama_model: env.OLLAMA_MODEL,
-            },
-            { timeout: this.timeout },
+        const curation = await this.curateText(
+            text,
+            transcription.title,
+            transcription.language,
         )
 
-        if (!response.success || !response.curation) {
-            throw new Error(response.error || 'LLM curation failed')
-        }
-
-        const llmCurationScore = Number(
-            (response.curation.overall / 10).toFixed(4),
-        )
+        const llmCurationScore = Number((curation.overall / 10).toFixed(4))
 
         await prisma.transcription.update({
             where: { id: transcription.id },
             data: {
                 llmCurationScore,
-                llmCurationData:
-                    response.curation as unknown as Prisma.InputJsonValue,
+                llmCurationData: curation as unknown as Prisma.InputJsonValue,
             },
         })
 
         return {
             transcriptionId: transcription.id,
             llmCurationScore,
-            llmCurationData: response.curation,
+            llmCurationData: curation,
         }
     }
 }

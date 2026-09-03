@@ -36,6 +36,18 @@ export async function getTranscriptions(app: FastifyInstance) {
                                     .nullable(),
                                 createdAt: z.string(),
                                 updatedAt: z.string(),
+                                playlistId: z.string().nullable(),
+                                isPlaylistVideo: z.boolean(),
+                                videoIndex: z.number().nullable(),
+                                playlist: z
+                                    .object({
+                                        id: z.string(),
+                                        title: z.string(),
+                                        thumbnail: z.string().nullable(),
+                                        videoCount: z.number(),
+                                        status: z.string(),
+                                    })
+                                    .nullable(),
                             }),
                         ),
                         total: z.number(),
@@ -65,6 +77,18 @@ export async function getTranscriptions(app: FastifyInstance) {
                     timestamps: true,
                     createdAt: true,
                     updatedAt: true,
+                    playlistId: true,
+                    isPlaylistVideo: true,
+                    videoIndex: true,
+                    playlist: {
+                        select: {
+                            id: true,
+                            title: true,
+                            thumbnail: true,
+                            videoCount: true,
+                            status: true,
+                        },
+                    },
                 },
             })
 
@@ -82,6 +106,10 @@ export async function getTranscriptions(app: FastifyInstance) {
                     timestamps: transcription.timestamps as any,
                     createdAt: transcription.createdAt.toISOString(),
                     updatedAt: transcription.updatedAt.toISOString(),
+                    playlistId: transcription.playlistId,
+                    isPlaylistVideo: transcription.isPlaylistVideo,
+                    videoIndex: transcription.videoIndex,
+                    playlist: transcription.playlist,
                 })),
                 total: transcriptions.length,
             })

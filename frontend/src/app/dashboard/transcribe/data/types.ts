@@ -15,6 +15,7 @@ export interface QualityMetrics {
 }
 
 export type CurationRecommendation = 'sft_example' | 'pretraining' | 'discard'
+export type RewriteMode = 'pretraining' | 'sft'
 
 export interface LlmCurationData {
   coherence: number
@@ -25,6 +26,20 @@ export interface LlmCurationData {
   rationale: string
   provider: string
   model: string
+}
+
+export interface RewritePair {
+  instruction: string
+  output: string
+}
+
+export interface RewriteData {
+  mode: RewriteMode
+  provider: string
+  model: string
+  chunkCount?: number
+  pairCount?: number
+  pairs?: RewritePair[]
 }
 
 export interface TranscriptionJob {
@@ -41,6 +56,14 @@ export interface TranscriptionJob {
   }
 }
 
+export interface TranscriptionPlaylistSummary {
+  id: string
+  title: string
+  thumbnail: string | null
+  videoCount: number
+  status: string
+}
+
 export interface Transcription {
   id: string
   youtubeId: string
@@ -55,6 +78,10 @@ export interface Transcription {
   timestamps: Timestamp[] | null
   createdAt: string
   updatedAt: string
+  playlistId?: string | null
+  isPlaylistVideo?: boolean
+  videoIndex?: number | null
+  playlist?: TranscriptionPlaylistSummary | null
 }
 
 export interface TranscriptionDetail extends Transcription {
@@ -67,6 +94,12 @@ export interface TranscriptionDetail extends Transcription {
   llmCurationData: LlmCurationData | null
   deduplicationStatus: string
   dedupGroupId: string | null
+  rewrittenContent: string | null
+  rewriteMode: RewriteMode | null
+  rewriteData: RewriteData | null
+  rewrittenQualityMetrics: QualityMetrics | null
+  rewrittenLlmCurationScore: number | null
+  rewrittenLlmCurationData: LlmCurationData | null
 }
 
 export type ExportFormat = 'TXT' | 'PDF' | 'DOCX' | 'JSON'
@@ -162,6 +195,8 @@ export interface PlaylistVideoTranscription {
   isProcessed: boolean
   llmCurationScore: number | null
   deduplicationStatus: string
+  rewrittenContent: string | null
+  rewriteMode: RewriteMode | null
   videoIndex: number | null
   createdAt: string
 }

@@ -392,6 +392,34 @@ def process_text(
     }
 
 
+def analyze_text(
+    text: str,
+    language_code: Optional[str] = None,
+    reference_text: Optional[str] = None,
+) -> Dict[str, Any]:
+    started = time.perf_counter()
+    target = text or ""
+    fallback_language = normalize_language(language_code)
+    language = detect_language(target, fallback_language)
+    hesitation_count = count_fillers(tokenize_words(target), language)
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    baseline = reference_text if reference_text and reference_text.strip() else target
+    metrics = compute_metrics(
+        baseline,
+        target,
+        hesitation_count,
+        0,
+        0,
+        language,
+        duration_ms,
+    )
+    return {
+        "success": True,
+        "processedText": target,
+        "qualityMetrics": metrics,
+    }
+
+
 def read_payload() -> Dict[str, Any]:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -405,11 +433,18 @@ def read_payload() -> Dict[str, Any]:
 def main() -> None:
     try:
         payload = read_payload()
-        result = process_text(
-            text=str(payload.get("text") or ""),
-            language_code=payload.get("language_code"),
-            is_generated=bool(payload.get("is_generated", False)),
-        )
+        if payload.get("analyze_only"):
+            result = analyze_text(
+                text=str(payload.get("text") or ""),
+                language_code=payload.get("language_code"),
+                reference_text=payload.get("reference_text"),
+            )
+        else:
+            result = process_text(
+                text=str(payload.get("text") or ""),
+                language_code=payload.get("language_code"),
+                is_generated=bool(payload.get("is_generated", False)),
+            )
         print(json.dumps(result, ensure_ascii=False))
     except Exception as exc:
         print(

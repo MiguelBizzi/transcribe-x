@@ -18,7 +18,7 @@ export async function exportFineTuning(app: FastifyInstance) {
                     scope: z.enum(['playlist', 'user']).default('user'),
                     playlistId: z.string().uuid().optional(),
                     dataset: z
-                        .enum(['raw', 'processed', 'curated'])
+                        .enum(['raw', 'processed', 'curated', 'rewritten'])
                         .default('curated'),
                     format: z.enum(['jsonl', 'csv', 'json']).default('jsonl'),
                     includeDuplicates: z.enum(['true', 'false']).default('false'),

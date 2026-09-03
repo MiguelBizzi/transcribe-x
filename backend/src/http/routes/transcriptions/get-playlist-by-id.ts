@@ -49,6 +49,10 @@ export async function getPlaylistById(app: FastifyInstance) {
                                     isProcessed: z.boolean(),
                                     llmCurationScore: z.number().nullable(),
                                     deduplicationStatus: z.string(),
+                                    rewrittenContent: z.string().nullable(),
+                                    rewriteMode: z
+                                        .enum(['pretraining', 'sft'])
+                                        .nullable(),
                                     videoIndex: z.number().nullable(),
                                     createdAt: z.string(),
                                 }),
@@ -121,6 +125,13 @@ export async function getPlaylistById(app: FastifyInstance) {
                                     transcription.llmCurationScore,
                                 deduplicationStatus:
                                     transcription.deduplicationStatus,
+                                rewrittenContent:
+                                    transcription.rewrittenContent ?? null,
+                                rewriteMode:
+                                    (transcription.rewriteMode as
+                                        | 'pretraining'
+                                        | 'sft'
+                                        | null) ?? null,
                                 videoIndex: transcription.videoIndex,
                                 createdAt:
                                     transcription.createdAt.toISOString(),

@@ -11,6 +11,7 @@ import { deduplicatePlaylist } from './deduplicate-playlist'
 import { deduplicateTranscription } from './deduplicate-transcription'
 import { deduplicateChannel } from './deduplicate-channel'
 import { curateTranscription } from './curate-transcription'
+import { rewriteTranscription } from './rewrite-transcription'
 
 export async function transcriptionRoutes(app: FastifyInstance) {
     app.register(createVideoTranscription, { prefix: '/transcriptions' })
@@ -22,6 +23,7 @@ export async function transcriptionRoutes(app: FastifyInstance) {
     app.register(deduplicateChannel, { prefix: '/transcriptions' })
     app.register(deduplicateTranscription, { prefix: '/transcriptions' })
     app.register(curateTranscription, { prefix: '/transcriptions' })
+    app.register(rewriteTranscription, { prefix: '/transcriptions' })
     app.register(getTranscriptionById, { prefix: '/transcriptions' })
     app.register(getUserPlaylists, { prefix: '/transcriptions' })
     app.register(getPlaylistById, { prefix: '/transcriptions' })

@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import type { LlmCurationData } from './llm-curation-service'
 import type { QualityMetrics } from './text-quality-service'
+import type { RewriteData, RewriteMode } from './llm-rewrite-service'
 
-export type FineTuningDataset = 'raw' | 'processed' | 'curated'
+export type FineTuningDataset = 'raw' | 'processed' | 'curated' | 'rewritten'
 export type FineTuningFormat = 'jsonl' | 'csv' | 'json'
 export type FineTuningScope = 'playlist' | 'user'
 
@@ -21,7 +22,10 @@ export interface FineTuningRecord {
     youtubeId: string
     language: string | null
     text: string
+    instruction?: string | null
+    output?: string | null
     dataset: FineTuningDataset
+    rewriteMode?: RewriteMode | null
     qualityScore: number | null
     mtldScore: number | null
     mattrScore: number | null
@@ -30,7 +34,7 @@ export interface FineTuningRecord {
     deduplicationStatus: string
 }
 
-function csvEscape(value: string | number | null): string {
+function csvEscape(value: string | number | null | undefined): string {
     const text = value == null ? '' : String(value)
     if (/[",\n]/.test(text)) {
         return `"${text.replace(/"/g, '""')}"`
@@ -43,10 +47,14 @@ function resolveText(
     transcription: {
         content: string | null
         processedContent: string | null
+        rewrittenContent: string | null
     },
 ): string {
     if (dataset === 'raw') {
         return transcription.content?.trim() || ''
+    }
+    if (dataset === 'rewritten') {
+        return transcription.rewrittenContent?.trim() || ''
     }
     return (
         transcription.processedContent?.trim() ||
@@ -85,6 +93,9 @@ export class FineTuningExportService {
                 language: true,
                 content: true,
                 processedContent: true,
+                rewrittenContent: true,
+                rewriteMode: true,
+                rewriteData: true,
                 qualityMetrics: true,
                 mtldScore: true,
                 mattrScore: true,
@@ -108,12 +119,45 @@ export class FineTuningExportService {
             }
 
             const curation = transcription.llmCurationData as LlmCurationData | null
-            if (query.dataset === 'curated') {
-                if (!curation) {
+            if (query.dataset === 'curated' || query.dataset === 'rewritten') {
+                if (query.dataset === 'curated' && !curation) {
                     continue
                 }
-                if (curation.recommendation === 'discard') {
+                if (curation?.recommendation === 'discard') {
                     skippedDiscarded += 1
+                    continue
+                }
+            }
+
+            if (query.dataset === 'rewritten') {
+                const rewriteData = transcription.rewriteData as RewriteData | null
+                const rewriteMode = (transcription.rewriteMode ||
+                    rewriteData?.mode ||
+                    null) as RewriteMode | null
+
+                if (rewriteMode === 'sft' && rewriteData?.pairs?.length) {
+                    for (const pair of rewriteData.pairs) {
+                        records.push({
+                            id: transcription.id,
+                            title: transcription.title,
+                            youtubeId: transcription.youtubeId,
+                            language: transcription.language,
+                            text: pair.output,
+                            instruction: pair.instruction,
+                            output: pair.output,
+                            dataset: query.dataset,
+                            rewriteMode,
+                            qualityScore: (
+                                transcription.qualityMetrics as QualityMetrics | null
+                            )?.qualityScore ?? null,
+                            mtldScore: transcription.mtldScore,
+                            mattrScore: transcription.mattrScore,
+                            llmCurationScore: transcription.llmCurationScore,
+                            recommendation: curation?.recommendation ?? null,
+                            deduplicationStatus:
+                                transcription.deduplicationStatus,
+                        })
+                    }
                     continue
                 }
             }
@@ -132,6 +176,7 @@ export class FineTuningExportService {
                 language: transcription.language,
                 text,
                 dataset: query.dataset,
+                rewriteMode: (transcription.rewriteMode as RewriteMode | null) ?? null,
                 qualityScore: metrics?.qualityScore ?? null,
                 mtldScore: transcription.mtldScore,
                 mattrScore: transcription.mattrScore,
@@ -154,12 +199,15 @@ export class FineTuningExportService {
                 'youtubeId',
                 'language',
                 'dataset',
+                'rewriteMode',
                 'qualityScore',
                 'mtldScore',
                 'mattrScore',
                 'llmCurationScore',
                 'recommendation',
                 'deduplicationStatus',
+                'instruction',
+                'output',
                 'text',
             ]
             const rows = records.map((record) =>
@@ -169,12 +217,15 @@ export class FineTuningExportService {
                     record.youtubeId,
                     record.language,
                     record.dataset,
+                    record.rewriteMode,
                     record.qualityScore,
                     record.mtldScore,
                     record.mattrScore,
                     record.llmCurationScore,
                     record.recommendation,
                     record.deduplicationStatus,
+                    record.instruction,
+                    record.output,
                     record.text,
                 ]
                     .map(csvEscape)
@@ -192,15 +243,28 @@ export class FineTuningExportService {
         }
 
         if (query.format === 'jsonl') {
+            const lines = records.map((record) => {
+                if (query.dataset === 'rewritten' && record.instruction && record.output) {
+                    return JSON.stringify({
+                        instruction: record.instruction,
+                        output: record.output,
+                        id: record.id,
+                        title: record.title,
+                        youtubeId: record.youtubeId,
+                        language: record.language,
+                        rewriteMode: record.rewriteMode,
+                    })
+                }
+                return JSON.stringify(record)
+            })
+
             return {
                 filename,
                 mimeType: 'application/jsonl;charset=utf-8',
                 recordCount: records.length,
                 skippedDuplicates,
                 skippedDiscarded,
-                content: records
-                    .map((record) => JSON.stringify(record))
-                    .join('\n'),
+                content: lines.join('\n'),
             }
         }
 

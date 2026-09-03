@@ -87,6 +87,41 @@ export class TextQualityService {
         }
     }
 
+    async analyzeText(
+        text: string,
+        languageCode?: string | null,
+        referenceText?: string | null,
+    ): Promise<QualityProcessResult | null> {
+        if (!text.trim()) {
+            return null
+        }
+
+        try {
+            const result = await this.executePythonScript({
+                text,
+                language_code: languageCode || null,
+                is_generated: false,
+                analyze_only: true,
+                reference_text: referenceText || null,
+            })
+
+            if (
+                !result.success ||
+                !result.processedText ||
+                !result.qualityMetrics
+            ) {
+                return null
+            }
+
+            return {
+                processedText: result.processedText,
+                qualityMetrics: result.qualityMetrics,
+            }
+        } catch {
+            return null
+        }
+    }
+
     async processAndPersist(
         transcriptionId: string,
         rawText: string | null | undefined,
@@ -126,6 +161,8 @@ export class TextQualityService {
         text: string
         language_code: string | null
         is_generated: boolean
+        analyze_only?: boolean
+        reference_text?: string | null
     }): Promise<PythonProcessResponse> {
         return new Promise((resolve, reject) => {
             const pythonProcess = spawn(this.pythonPath, [this.scriptPath], {

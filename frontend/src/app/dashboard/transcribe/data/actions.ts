@@ -11,6 +11,8 @@ import type {
   PlaylistTranscriptionRequest,
   PlaylistTranscriptionResponse,
   QualityMetrics,
+  RewriteData,
+  RewriteMode,
 } from './types'
 import { getTranscriptionById } from './transcriptions'
 import { getPlaylistTranscriptionById } from './playlist-transcriptions'
@@ -259,10 +261,54 @@ export const deduplicatePlaylistAction = actionClient
     }
   })
 
+const rewriteTranscriptionSchema = z.object({
+  id: z.string().uuid('ID da transcrição inválido'),
+  mode: z.enum(['pretraining', 'sft']),
+})
+
+export const rewriteTranscriptionAction = actionClient
+  .inputSchema(rewriteTranscriptionSchema)
+  .action(async ({ parsedInput: { id, mode } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        transcription: {
+          id: string
+          rewrittenContent: string
+          rewriteMode: RewriteMode
+          rewriteData: RewriteData
+          rewrittenQualityMetrics: QualityMetrics | null
+          rewrittenLlmCurationScore: number | null
+          rewrittenLlmCurationData: LlmCurationData | null
+        }
+      }>(`/transcriptions/${id}/rewrite`, {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      })
+
+      revalidatePath(`/dashboard/transcriptions/${id}`)
+      revalidatePath('/dashboard/playlists')
+
+      return {
+        success: true,
+        message: response.message,
+        transcription: response.transcription,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao reescrever a transcrição',
+      }
+    }
+  })
+
 const fineTuningExportSchema = z.object({
   scope: z.enum(['playlist', 'user']),
   playlistId: z.string().uuid().optional(),
-  dataset: z.enum(['raw', 'processed', 'curated']),
+  dataset: z.enum(['raw', 'processed', 'curated', 'rewritten']),
   format: z.enum(['jsonl', 'csv', 'json']),
   includeDuplicates: z.boolean().optional(),
 })
