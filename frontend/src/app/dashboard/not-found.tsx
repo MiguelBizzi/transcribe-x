@@ -6,8 +6,8 @@ export default function NotFound() {
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">404</h1>
         <p className="mb-4 text-xl text-gray-600">Ops! Página não encontrada</p>
-        <Link href="/" className="text-primary hover:text-primary/80 underline">
-          Voltar ao início
+        <Link href="/dashboard" className="text-primary hover:text-primary/80 underline">
+          Voltar ao painel
         </Link>
       </div>
     </div>

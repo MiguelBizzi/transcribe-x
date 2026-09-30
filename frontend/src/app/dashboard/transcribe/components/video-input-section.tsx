@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Sparkles, Upload, CheckCircle, PlaySquare } from 'lucide-react'
 import type { UrlType } from '../data/types'
 import { getUrlTypeInfo, getBulkModePlaceholder } from '../data/utils'
@@ -16,7 +15,6 @@ import { toast } from 'sonner'
 
 export function VideoInputSection() {
   const [input, setInput] = useState('')
-  const [bulkMode, setBulkMode] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [detectedUrls, setDetectedUrls] = useState<string[]>([])
   const [urlType, setUrlType] = useState<UrlType>(null)
@@ -32,15 +30,22 @@ export function VideoInputSection() {
 
     if (urls.some((url) => url.includes('playlist'))) {
       return 'playlist'
-    } else if (
-      urls.some((url) => url.includes('/c/') || url.includes('/channel/'))
+    }
+    if (
+      urls.some(
+        (url) =>
+          url.includes('/channel/') ||
+          url.includes('/c/') ||
+          url.includes('/user/') ||
+          /youtube\.com\/@/i.test(url),
+      )
     ) {
       return 'channel'
-    } else if (urls.length === 1) {
-      return 'video'
-    } else {
-      return 'mixed'
     }
+    if (urls.length === 1) {
+      return 'video'
+    }
+    return 'mixed'
   }, [])
 
   const handleInputChange = useCallback(
@@ -59,6 +64,11 @@ export function VideoInputSection() {
     setIsProcessing(true)
 
     try {
+      if (urlType === 'channel') {
+        toast.error('Canal não suportado nesta versão. Use um vídeo ou uma playlist.')
+        return
+      }
+
       if (urlType === 'playlist') {
         const playlistUrl = detectedUrls[0]
         const result = await createPlaylistTranscriptionAction({ playlistUrl })
@@ -118,19 +128,9 @@ export function VideoInputSection() {
       </div>
 
       <div className="w-full space-y-6">
-        <div className="bg-muted/30 flex items-center justify-between rounded-lg p-4">
-          <div>
-            <h3 className="font-medium">Modo em lote</h3>
-            <p className="text-muted-foreground text-sm">
-              Processe várias URLs ao mesmo tempo
-            </p>
-          </div>
-          <Switch checked={bulkMode} onCheckedChange={setBulkMode} />
-        </div>
-
         <div className="w-full space-y-4">
           <Textarea
-            placeholder={getBulkModePlaceholder(bulkMode)}
+            placeholder={getBulkModePlaceholder()}
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             className="focus:border-primary/50 min-h-[150px] w-full resize-none border-2 transition-colors"
@@ -178,16 +178,18 @@ export function VideoInputSection() {
 
         <Button
           onClick={handleStartTranscription}
-          disabled={detectedUrls.length === 0 || isProcessing}
+          disabled={detectedUrls.length === 0 || isProcessing || urlType === 'channel'}
           className="shadow-elegant h-12 w-full text-lg transition-all hover:shadow-lg"
           size="lg"
         >
           <Upload className="mr-2 h-5 w-5" />
-          {isProcessing
+            {isProcessing
             ? 'Processando...'
             : urlType === 'playlist'
               ? 'Iniciar transcrição da playlist'
-              : 'Iniciar transcrição'}
+              : detectedUrls.length > 1
+                ? `Iniciar transcrição (${detectedUrls.length} vídeos)`
+                : 'Iniciar transcrição'}
         </Button>
       </div>
     </div>

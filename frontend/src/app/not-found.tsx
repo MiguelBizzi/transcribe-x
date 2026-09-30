@@ -14,7 +14,7 @@ const NotFound = () => {
           Não encontramos a página que você está procurando.
         </p>
         <div className="mt-10 flex items-center justify-center gap-x-6">
-          <Link href="/">
+          <Link href="/auth">
             <Button variant="default">
               Voltar ao início <ArrowRight className="h-4 w-4" />
             </Button>

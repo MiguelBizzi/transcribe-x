@@ -16,11 +16,17 @@ export async function proxy(request: NextRequest) {
   const { valid } = await validateAuth()
   const { pathname } = request.nextUrl
 
+  if (pathname === '/') {
+    return NextResponse.redirect(
+      new URL(valid ? '/dashboard' : '/auth', request.url),
+    )
+  }
+
   if (isProtectedRoute(pathname) && !valid) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }
 
-  if (request.nextUrl.pathname === '/auth' && valid) {
+  if (pathname === '/auth' && valid) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

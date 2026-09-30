@@ -41,6 +41,15 @@ python3 youtube_transcript.py dQw4w9WgXcQ
 python3 youtube_transcript.py invalid_id
 ```
 
+### Scientific pipeline tests
+
+```bash
+cd backend
+python3 -m pytest scripts/tests
+```
+
+Covers MTLD/MATTR, the composite `qualityScore` (TTR is excluded), exact/near dedup, and LLM-judge chunk aggregation. Tests do not call OpenAI or Ollama.
+
 ## Script Usage
 
 ### Command Line

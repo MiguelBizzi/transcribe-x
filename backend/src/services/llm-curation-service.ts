@@ -17,6 +17,7 @@ export interface LlmCurationData {
     rationale: string
     provider: string
     model: string
+    chunkCount?: number
 }
 
 interface PythonCurationResponse {
@@ -33,11 +34,17 @@ export interface CurationResult {
 
 export class LlmCurationService {
     private scriptPath: string
-    private timeout: number
 
     constructor() {
         this.scriptPath = resolveScriptPath('llm_curator.py')
-        this.timeout = 120000
+    }
+
+    private timeoutForText(text: string): number {
+        const estimatedChunks = Math.min(
+            10,
+            Math.max(1, Math.ceil(text.length / 6000)),
+        )
+        return Math.min(120000 + estimatedChunks * 90000, 900000)
     }
 
     async curateText(
@@ -73,11 +80,15 @@ export class LlmCurationService {
                 ollama_base_url: env.OLLAMA_BASE_URL,
                 ollama_model: env.OLLAMA_MODEL,
             },
-            { timeout: this.timeout },
+            { timeout: this.timeoutForText(text) },
         )
 
         if (!response.success || !response.curation) {
-            throw new Error(response.error || 'LLM curation failed')
+            throw new Error(
+                response.error
+                    ? `Provedor de LLM indisponível: ${response.error}`
+                    : 'Provedor de LLM indisponível. Verifique a chave da API ou o Ollama local.',
+            )
         }
 
         return response.curation
@@ -95,11 +106,18 @@ export class LlmCurationService {
                 language: true,
                 content: true,
                 processedContent: true,
+                deduplicationStatus: true,
             },
         })
 
         if (!transcription) {
             throw new Error('Transcription not found')
+        }
+
+        if (transcription.deduplicationStatus === 'pending') {
+            throw new Error(
+                'Remova ou marque duplicatas antes da curadoria LLM.',
+            )
         }
 
         const text =
@@ -132,6 +150,57 @@ export class LlmCurationService {
             llmCurationScore,
             llmCurationData: curation,
         }
+    }
+
+    async curatePlaylist(
+        playlistId: string,
+        userId: string,
+    ): Promise<{ curated: number; skipped: number; failed: number }> {
+        const playlist = await prisma.playlist.findFirst({
+            where: { id: playlistId, userId },
+            select: { id: true },
+        })
+        if (!playlist) {
+            throw new Error('Playlist not found')
+        }
+
+        const transcriptions = await prisma.transcription.findMany({
+            where: {
+                playlistId,
+                userId,
+                status: 'COMPLETED',
+            },
+            select: {
+                id: true,
+                deduplicationStatus: true,
+                llmCurationData: true,
+            },
+            orderBy: { videoIndex: 'asc' },
+        })
+
+        let curated = 0
+        let skipped = 0
+        let failed = 0
+
+        for (const transcription of transcriptions) {
+            if (
+                transcription.deduplicationStatus === 'pending' ||
+                transcription.deduplicationStatus === 'duplicate' ||
+                transcription.llmCurationData
+            ) {
+                skipped += 1
+                continue
+            }
+
+            try {
+                await this.curateTranscription(transcription.id, userId)
+                curated += 1
+            } catch {
+                failed += 1
+            }
+        }
+
+        return { curated, skipped, failed }
     }
 }
 

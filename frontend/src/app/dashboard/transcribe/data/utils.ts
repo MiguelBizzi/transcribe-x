@@ -6,20 +6,28 @@ export const detectUrls = (text: string): string[] => {
   return text.match(urlRegex) || []
 }
 
+function isChannelUrl(url: string): boolean {
+  return (
+    url.includes('/channel/') ||
+    url.includes('/c/') ||
+    url.includes('/user/') ||
+    /youtube\.com\/@/i.test(url)
+  )
+}
+
 export const getUrlType = (urls: string[]): UrlType => {
   if (urls.length === 0) return null
 
   if (urls.some((url) => url.includes('playlist'))) {
     return 'playlist'
-  } else if (
-    urls.some((url) => url.includes('/c/') || url.includes('/channel/'))
-  ) {
-    return 'channel'
-  } else if (urls.length === 1) {
-    return 'video'
-  } else {
-    return 'mixed'
   }
+  if (urls.some(isChannelUrl)) {
+    return 'channel'
+  }
+  if (urls.length === 1) {
+    return 'video'
+  }
+  return 'mixed'
 }
 
 export const getUrlTypeInfo = (urlType: UrlType): UrlTypeInfo | null => {
@@ -62,9 +70,6 @@ export const getExportFormats = (): ExportFormat[] => [
   'JSON',
 ]
 
-export const getBulkModePlaceholder = (bulkMode: boolean): string => {
-  if (bulkMode) {
-    return 'Cole várias URLs do YouTube (uma por linha):\n\nhttps://youtube.com/watch?v=...\nhttps://youtube.com/playlist?list=...\nhttps://youtube.com/c/nomedocanal'
-  }
-  return 'Cole uma URL do YouTube:\n\n• Vídeo: https://youtube.com/watch?v=...\n• Playlist: https://youtube.com/playlist?list=...\n• Canal: https://youtube.com/c/nomedocanal'
+export const getBulkModePlaceholder = (): string => {
+  return 'Cole uma ou mais URLs de vídeo ou playlist do YouTube (uma por linha):\n\nhttps://youtube.com/watch?v=...\nhttps://youtube.com/playlist?list=...'
 }

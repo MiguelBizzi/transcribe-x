@@ -2,8 +2,8 @@ import { Suspense } from 'react'
 import { TranscribeHeader } from './components/transcribe-header'
 import { VideoInputSection } from './components/video-input-section'
 import { TranscriptionJobs } from './components/transcription-jobs'
-import { PlaylistTranscriptionJobs } from './components/playlist-transcription-jobs'
 import { TranscriptionJobsSkeleton } from './components/transcription-jobs-skeleton'
+import { PlaylistJobsSection } from './components/playlist-jobs-section'
 import { getCurrentUser } from '@/server/validate-auth'
 import { redirect } from 'next/navigation'
 
@@ -26,7 +26,7 @@ export default async function Transcribe() {
         </Suspense>
 
         <Suspense fallback={<TranscriptionJobsSkeleton />}>
-          <PlaylistTranscriptionJobs />
+          <PlaylistJobsSection />
         </Suspense>
       </div>
     </div>

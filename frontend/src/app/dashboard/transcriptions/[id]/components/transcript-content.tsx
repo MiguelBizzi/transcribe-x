@@ -28,12 +28,22 @@ export function TranscriptContent({ transcription }: TranscriptContentProps) {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={defaultTab}>
-          <TabsList>
-            <TabsTrigger value="raw">Original</TabsTrigger>
-            <TabsTrigger value="clean" disabled={!hasClean}>
+          <TabsList className="grid h-9 w-full max-w-md grid-cols-3">
+            <TabsTrigger value="raw" className="px-2 text-xs sm:text-sm">
+              Original
+            </TabsTrigger>
+            <TabsTrigger
+              value="clean"
+              className="px-2 text-xs sm:text-sm"
+              disabled={!hasClean}
+            >
               Processado
             </TabsTrigger>
-            <TabsTrigger value="rewritten" disabled={!hasRewritten}>
+            <TabsTrigger
+              value="rewritten"
+              className="px-2 text-xs sm:text-sm"
+              disabled={!hasRewritten}
+            >
               Reescrito
             </TabsTrigger>
           </TabsList>

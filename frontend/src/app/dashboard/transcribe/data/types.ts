@@ -26,6 +26,7 @@ export interface LlmCurationData {
   rationale: string
   provider: string
   model: string
+  chunkCount?: number
 }
 
 export interface RewritePair {
@@ -89,6 +90,7 @@ export interface TranscriptionDetail extends Transcription {
   errorMessage: string | null
   processedContent: string | null
   qualityMetrics: QualityMetrics | null
+  rawQualityMetrics: QualityMetrics | null
   isProcessed: boolean
   llmCurationScore: number | null
   llmCurationData: LlmCurationData | null
@@ -166,6 +168,7 @@ export interface PlaylistTranscriptionResponse {
     totalVideos: number
     processedVideos: number
     failedVideos: number
+    status?: string
   }
 }
 
@@ -194,6 +197,8 @@ export interface PlaylistVideoTranscription {
   qualityMetrics: QualityMetrics | null
   isProcessed: boolean
   llmCurationScore: number | null
+  llmCurationData: LlmCurationData | null
+  errorMessage: string | null
   deduplicationStatus: string
   rewrittenContent: string | null
   rewriteMode: RewriteMode | null

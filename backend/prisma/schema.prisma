@@ -47,6 +47,7 @@ model Transcription {
     timestamps          Json?               @map("timestamps")
     processedContent    String?             @map("processed_content")
     qualityMetrics      Json?               @map("quality_metrics")
+    rawQualityMetrics   Json?               @map("raw_quality_metrics")
     isProcessed         Boolean             @default(false) @map("is_processed")
     mtldScore           Float?              @map("mtld_score")
     mattrScore          Float?              @map("mattr_score")
@@ -151,6 +152,7 @@ enum TranscriptionType {
 }
 
 enum TranscriptionStatus {
+    PROCESSING
     COMPLETED
     ERROR
 }

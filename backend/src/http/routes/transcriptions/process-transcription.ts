@@ -45,14 +45,12 @@ export async function processTranscription(app: FastifyInstance) {
             const { id } = request.params
 
             const transcription = await prisma.transcription.findFirst({
-                where: {
-                    id,
-                    userId: currentUser.id,
-                },
+                where: { id, userId: currentUser.id },
                 select: {
                     id: true,
                     content: true,
                     language: true,
+                    rewrittenContent: true,
                 },
             })
 
@@ -71,6 +69,7 @@ export async function processTranscription(app: FastifyInstance) {
                 transcription.content,
                 transcription.language,
                 true,
+                { resetDownstream: true },
             )
 
             if (!result) {

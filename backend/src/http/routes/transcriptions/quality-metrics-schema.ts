@@ -25,6 +25,7 @@ export const llmCurationDataSchema = z.object({
     rationale: z.string(),
     provider: z.string(),
     model: z.string(),
+    chunkCount: z.number().optional(),
 })
 
 export const rewritePairSchema = z.object({

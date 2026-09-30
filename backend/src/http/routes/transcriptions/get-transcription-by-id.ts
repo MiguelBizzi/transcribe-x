@@ -42,6 +42,7 @@ export async function getTranscriptionById(app: FastifyInstance) {
                                 .nullable(),
                             processedContent: z.string().nullable(),
                             qualityMetrics: qualityMetricsSchema.nullable(),
+                            rawQualityMetrics: qualityMetricsSchema.nullable(),
                             isProcessed: z.boolean(),
                             llmCurationScore: z.number().nullable(),
                             llmCurationData: llmCurationDataSchema.nullable(),
@@ -95,6 +96,7 @@ export async function getTranscriptionById(app: FastifyInstance) {
                     timestamps: true,
                     processedContent: true,
                     qualityMetrics: true,
+                    rawQualityMetrics: true,
                     isProcessed: true,
                     llmCurationScore: true,
                     llmCurationData: true,
@@ -132,6 +134,10 @@ export async function getTranscriptionById(app: FastifyInstance) {
                     processedContent: transcription.processedContent,
                     qualityMetrics:
                         (transcription.qualityMetrics as z.infer<
+                            typeof qualityMetricsSchema
+                        > | null) ?? null,
+                    rawQualityMetrics:
+                        (transcription.rawQualityMetrics as z.infer<
                             typeof qualityMetricsSchema
                         > | null) ?? null,
                     isProcessed: transcription.isProcessed,

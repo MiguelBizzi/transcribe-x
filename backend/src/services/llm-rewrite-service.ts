@@ -69,6 +69,8 @@ export class LlmRewriteService {
                 content: true,
                 processedContent: true,
                 llmCurationData: true,
+                rewrittenContent: true,
+                deduplicationStatus: true,
             },
         })
 
@@ -76,10 +78,16 @@ export class LlmRewriteService {
             throw new Error('Transcription not found')
         }
 
+        if (transcription.deduplicationStatus === 'duplicate') {
+            throw new Error(
+                'Vídeos marcados como duplicata não podem ser reescritos.',
+            )
+        }
+
         const curation = transcription.llmCurationData as LlmCurationData | null
         if (!curation) {
             throw new Error(
-                'Run LLM curation before rewriting. Rewrite is a post-curation step.',
+                'Execute a curadoria LLM antes da reescrita WRAP.',
             )
         }
         if (curation.recommendation === 'discard') {
@@ -132,7 +140,11 @@ export class LlmRewriteService {
             !response.rewriteMode ||
             !response.rewriteData
         ) {
-            throw new Error(response.error || 'LLM rewrite failed')
+            throw new Error(
+                response.error
+                    ? `Provedor de LLM indisponível: ${response.error}`
+                    : 'Provedor de LLM indisponível. Verifique a chave da API ou o Ollama local.',
+            )
         }
 
         const rewrittenContent = response.rewrittenContent
@@ -182,6 +194,61 @@ export class LlmRewriteService {
             rewrittenLlmCurationScore,
             rewrittenLlmCurationData: rewrittenCuration,
         }
+    }
+
+    async rewritePlaylist(
+        playlistId: string,
+        userId: string,
+        mode: RewriteMode,
+    ): Promise<{ rewritten: number; skipped: number; failed: number }> {
+        const playlist = await prisma.playlist.findFirst({
+            where: { id: playlistId, userId },
+            select: { id: true },
+        })
+        if (!playlist) {
+            throw new Error('Playlist not found')
+        }
+
+        const transcriptions = await prisma.transcription.findMany({
+            where: {
+                playlistId,
+                userId,
+                status: 'COMPLETED',
+            },
+            select: {
+                id: true,
+                deduplicationStatus: true,
+                llmCurationData: true,
+                rewrittenContent: true,
+            },
+            orderBy: { videoIndex: 'asc' },
+        })
+
+        let rewritten = 0
+        let skipped = 0
+        let failed = 0
+
+        for (const transcription of transcriptions) {
+            const curation = transcription.llmCurationData as LlmCurationData | null
+            if (
+                transcription.deduplicationStatus === 'duplicate' ||
+                !curation ||
+                curation.recommendation === 'discard' ||
+                transcription.rewrittenContent?.trim()
+            ) {
+                skipped += 1
+                continue
+            }
+
+            try {
+                await this.rewriteTranscription(transcription.id, userId, mode)
+                rewritten += 1
+            } catch {
+                failed += 1
+            }
+        }
+
+        return { rewritten, skipped, failed }
     }
 }
 

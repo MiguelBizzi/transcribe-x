@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'TranscribeX',
   description:
-    'Transforme canais inteiros, playlists ou vários vídeos do YouTube em transcrições precisas. Uma demonstração acadêmica para pesquisa, aprendizado e fluxos de conteúdo.',
+    'Sistema de curadoria de legendas do YouTube para geração de datasets textuais estruturados.',
 }
 
 export default function RootLayout({

@@ -4,7 +4,7 @@ import type { ZodTypeProvider } from '@fastify/type-provider-zod'
 import { z } from 'zod'
 import { getCurrentUser } from '../../middlewares/auth'
 import { BadRequestError } from '../_errors/bad-request-error'
-import { qualityMetricsSchema } from './quality-metrics-schema'
+import { qualityMetricsSchema, llmCurationDataSchema } from './quality-metrics-schema'
 
 export async function getPlaylistById(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().get(
@@ -48,6 +48,9 @@ export async function getPlaylistById(app: FastifyInstance) {
                                         qualityMetricsSchema.nullable(),
                                     isProcessed: z.boolean(),
                                     llmCurationScore: z.number().nullable(),
+                                    llmCurationData:
+                                        llmCurationDataSchema.nullable(),
+                                    errorMessage: z.string().nullable(),
                                     deduplicationStatus: z.string(),
                                     rewrittenContent: z.string().nullable(),
                                     rewriteMode: z
@@ -123,6 +126,11 @@ export async function getPlaylistById(app: FastifyInstance) {
                                 isProcessed: transcription.isProcessed,
                                 llmCurationScore:
                                     transcription.llmCurationScore,
+                                llmCurationData:
+                                    (transcription.llmCurationData as z.infer<
+                                        typeof llmCurationDataSchema
+                                    > | null) ?? null,
+                                errorMessage: transcription.errorMessage,
                                 deduplicationStatus:
                                     transcription.deduplicationStatus,
                                 rewrittenContent:

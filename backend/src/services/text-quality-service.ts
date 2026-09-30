@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 import path from 'path'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { downstreamResetData } from './pipeline-reset'
 
 export interface QualityMetrics {
     originalWordCount: number
@@ -127,6 +128,7 @@ export class TextQualityService {
         rawText: string | null | undefined,
         languageCode?: string | null,
         isGenerated = false,
+        options: { resetDownstream?: boolean } = {},
     ): Promise<QualityProcessResult | null> {
         if (!rawText?.trim()) {
             return null
@@ -142,15 +144,21 @@ export class TextQualityService {
             return null
         }
 
+        const rawAnalysis = await this.analyzeText(rawText, languageCode)
+
         await prisma.transcription.update({
             where: { id: transcriptionId },
             data: {
                 processedContent: result.processedText,
                 qualityMetrics:
                     result.qualityMetrics as unknown as Prisma.InputJsonValue,
+                rawQualityMetrics: rawAnalysis
+                    ? (rawAnalysis.qualityMetrics as unknown as Prisma.InputJsonValue)
+                    : undefined,
                 isProcessed: true,
                 mtldScore: result.qualityMetrics.mtldScore,
                 mattrScore: result.qualityMetrics.mattrScore,
+                ...(options.resetDownstream ? downstreamResetData : {}),
             },
         })
 

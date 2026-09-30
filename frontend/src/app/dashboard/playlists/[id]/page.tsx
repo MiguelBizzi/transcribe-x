@@ -13,9 +13,9 @@ import {
 } from '@/utils/format-duration'
 import { formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
-import { PlaylistExportPanel } from './components/playlist-export-panel'
 import { PlaylistCurationPanel } from './components/playlist-curation-panel'
 import { PlaylistVideoList } from './components/playlist-video-list'
+import { ProcessingRefresher } from '@/app/dashboard/components/processing-refresher'
 
 interface PlaylistDetailPageProps {
   params: Promise<{ id: string }>
@@ -122,7 +122,8 @@ export default async function PlaylistDetailPage({
         </div>
       </div>
 
-      <PlaylistExportPanel playlist={playlist} />
+      <ProcessingRefresher active={playlist.status === 'PROCESSING'} />
+
       <PlaylistCurationPanel playlist={playlist} />
       <PlaylistVideoList videos={playlist.transcriptions} />
     </div>

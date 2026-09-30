@@ -9,6 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type {
   LlmCurationData,
   QualityMetrics,
@@ -30,6 +35,24 @@ import { cn } from '@/lib/utils'
 
 interface QualityMetricsPanelProps {
   transcription: TranscriptionDetail
+}
+
+const PIPELINE_STEPS = [
+  'extracted',
+  'processed',
+  'deduplicated',
+  'curated',
+  'rewritten',
+] as const
+
+type PipelineStep = (typeof PIPELINE_STEPS)[number]
+
+const STEP_LABELS: Record<PipelineStep, string> = {
+  extracted: 'Extraído',
+  processed: 'Processado',
+  deduplicated: 'Deduplicado',
+  curated: 'Curado',
+  rewritten: 'Reescrito',
 }
 
 function toneClasses(score: number) {
@@ -55,21 +78,40 @@ function toneClasses(score: number) {
 function MetricRow({
   label,
   value,
+  hint,
 }: {
   label: string
   value: string | number
+  hint?: string
 }) {
-  return (
+  const content = (
     <div className="flex items-center justify-between gap-4 text-sm">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground underline-offset-4">
+        {hint ? <span className="decoration-dotted underline">{label}</span> : label}
+      </span>
       <span className="font-medium">{value}</span>
     </div>
+  )
+
+  if (!hint) {
+    return content
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="w-full text-left">
+          {content}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{hint}</TooltipContent>
+    </Tooltip>
   )
 }
 
 function dedupLabel(status: string) {
   if (status === 'duplicate') return 'Duplicata'
-  if (status === 'kept') return 'Mantida'
+  if (status === 'kept') return 'Segmentos únicos'
   return 'Pendente'
 }
 
@@ -77,6 +119,27 @@ function recommendationLabel(recommendation: LlmCurationData['recommendation']) 
   if (recommendation === 'sft_example') return 'SFT'
   if (recommendation === 'pretraining') return 'Pré-treino'
   return 'Descartar'
+}
+
+function pipelineState(transcription: TranscriptionDetail): {
+  completed: PipelineStep[]
+  current: PipelineStep
+} {
+  const extracted = Boolean(transcription.content?.trim())
+  const processed = Boolean(transcription.isProcessed)
+  const deduplicated = transcription.deduplicationStatus !== 'pending'
+  const curated = Boolean(transcription.llmCurationData)
+  const rewritten = Boolean(transcription.rewrittenContent?.trim())
+  const completed: PipelineStep[] = []
+  if (extracted) completed.push('extracted')
+  if (processed) completed.push('processed')
+  if (deduplicated) completed.push('deduplicated')
+  if (curated) completed.push('curated')
+  if (rewritten) completed.push('rewritten')
+
+  const current =
+    PIPELINE_STEPS.find((step) => !completed.includes(step)) ?? 'rewritten'
+  return { completed, current }
 }
 
 function QualitySnapshot({
@@ -90,24 +153,44 @@ function QualitySnapshot({
     <div className="space-y-5">
       {metrics ? (
         <>
-          <div className="space-y-2">
-            <div className="flex items-end justify-between">
-              <span className="text-muted-foreground text-sm">
-                Pontuação de qualidade
-              </span>
-              <span
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">MATTR</p>
+              <p className="text-lg font-semibold">
+                {typeof metrics.mattrScore === 'number'
+                  ? formatPercent(metrics.mattrScore)
+                  : '—'}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">MTLD</p>
+              <p className="text-lg font-semibold">
+                {typeof metrics.mtldScore === 'number'
+                  ? metrics.mtldScore.toFixed(1)
+                  : '—'}
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Score interno</p>
+              <p
                 className={cn(
-                  'text-2xl font-bold',
+                  'text-lg font-semibold',
                   toneClasses(metrics.qualityScore).text,
                 )}
               >
                 {formatQualityScore(metrics.qualityScore)}
-              </span>
+              </p>
             </div>
+          </div>
+          <div className="space-y-2">
             <Progress
               value={metrics.qualityScore * 100}
               className={cn('h-2', toneClasses(metrics.qualityScore).bar)}
             />
+            <p className="text-muted-foreground text-xs">
+              Score interno heurístico (não calibrado). Use MATTR, MTLD e o
+              juiz LLM como evidência.
+            </p>
           </div>
           <MetricsList metrics={metrics} />
         </>
@@ -125,18 +208,32 @@ function QualitySnapshot({
               {recommendationLabel(curation.recommendation)}
             </Badge>
           </div>
-          <MetricRow
-            label="Coerência"
-            value={`${curation.coherence.toFixed(1)}/10`}
-          />
-          <MetricRow
-            label="Riqueza"
-            value={`${curation.richness.toFixed(1)}/10`}
-          />
-          <MetricRow
-            label="Factualidade"
-            value={`${curation.factuality.toFixed(1)}/10`}
-          />
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Coerência</p>
+              <p className="text-lg font-semibold">
+                {curation.coherence.toFixed(1)}/10
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Riqueza</p>
+              <p className="text-lg font-semibold">
+                {curation.richness.toFixed(1)}/10
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-muted-foreground text-xs">Factualidade</p>
+              <p className="text-lg font-semibold">
+                {curation.factuality.toFixed(1)}/10
+              </p>
+            </div>
+          </div>
+          {typeof curation.chunkCount === 'number' && curation.chunkCount > 0 && (
+            <p className="text-muted-foreground text-xs">
+              Julgado em {curation.chunkCount} trecho
+              {curation.chunkCount === 1 ? '' : 's'}
+            </p>
+          )}
           {curation.rationale && (
             <p className="text-muted-foreground text-xs">{curation.rationale}</p>
           )}
@@ -160,12 +257,21 @@ function MetricsList({ metrics }: { metrics: QualityMetrics }) {
       <MetricRow
         label="TTR (enviesado)"
         value={formatPercent(metrics.lexicalDiversity)}
+        hint="Cai em textos longos mesmo com vocabulário rico. Não entra no score interno."
       />
       {typeof metrics.mattrScore === 'number' && (
-        <MetricRow label="MATTR" value={formatPercent(metrics.mattrScore)} />
+        <MetricRow
+          label="MATTR"
+          value={formatPercent(metrics.mattrScore)}
+          hint="Type-token em janela móvel de 50 palavras, menos sensível ao comprimento."
+        />
       )}
       {typeof metrics.mtldScore === 'number' && (
-        <MetricRow label="MTLD" value={metrics.mtldScore.toFixed(1)} />
+        <MetricRow
+          label="MTLD"
+          value={metrics.mtldScore.toFixed(1)}
+          hint="Diversidade lexical por fatores de TTR (limiar 0,72), média bidirecional."
+        />
       )}
       <MetricRow
         label="Tamanho médio das frases"
@@ -198,16 +304,34 @@ export function QualityMetricsPanel({
   const [isDeduplicating, setIsDeduplicating] = useState(false)
   const [isRewriting, setIsRewriting] = useState(false)
   const metrics = transcription.qualityMetrics
+  const rawMetrics = transcription.rawQualityMetrics
   const curation = transcription.llmCurationData
   const hasContent = Boolean(transcription.content?.trim())
+  const hasDedup = transcription.deduplicationStatus !== 'pending'
+  const isDuplicate = transcription.deduplicationStatus === 'duplicate'
+  const hasRewrite = Boolean(transcription.rewrittenContent?.trim())
+  const canCurate = hasContent && hasDedup && !isDuplicate
   const canRewrite =
-    Boolean(curation) && curation?.recommendation !== 'discard'
+    Boolean(curation) &&
+    curation?.recommendation !== 'discard' &&
+    !isDuplicate
+  const canDedup = hasContent && !hasRewrite
+  const { completed, current } = pipelineState(transcription)
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>(
     transcription.rewriteMode ||
       (curation?.recommendation === 'sft_example' ? 'sft' : 'pretraining'),
   )
 
   const handleReprocess = async () => {
+    if (
+      (hasRewrite || Boolean(curation) || hasDedup) &&
+      !window.confirm(
+        'Reprocessar apaga deduplicação, curadoria e reescrita desta transcrição. Continuar?',
+      )
+    ) {
+      return
+    }
+
     setIsProcessing(true)
     try {
       const result = await reprocessTranscriptionAction({
@@ -228,7 +352,7 @@ export function QualityMetricsPanel({
         )
       }
 
-      toast.success('Transcrição processada com sucesso')
+      toast.success('Transcrição reprocessada. Etapas seguintes foram zeradas.')
       router.refresh()
     } catch (error) {
       toast.error(
@@ -282,22 +406,22 @@ export function QualityMetricsPanel({
 
       if (!result.data?.success) {
         throw new Error(
-          result.data?.message || 'Falha ao deduplicar a transcrição',
+          result.data?.message || 'Falha ao remover segmentos duplicados',
         )
       }
 
       const removed = result.data.sentencesRemoved ?? 0
       toast.success(
         removed > 0
-          ? `${removed} segmentos duplicados removidos`
-          : 'Nenhuma duplicata encontrada',
+          ? `${removed} sentenças duplicadas removidas do texto processado`
+          : 'Nenhuma sentença duplicada encontrada',
       )
       router.refresh()
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Falha ao deduplicar a transcrição',
+          : 'Falha ao remover segmentos duplicados',
       )
     } finally {
       setIsDeduplicating(false)
@@ -323,7 +447,7 @@ export function QualityMetricsPanel({
       }
 
       toast.success(
-        'Reescrita WRAP concluída. Compare as abas Antes e Depois no relatório.',
+        'Reescrita WRAP concluída. Compare as abas Bruto, Processado e Reescrito.',
       )
       router.refresh()
     } catch (error) {
@@ -337,10 +461,11 @@ export function QualityMetricsPanel({
     }
   }
 
-  const hasRewriteReport = Boolean(
-    transcription.rewrittenQualityMetrics ||
-      transcription.rewrittenLlmCurationData,
-  )
+  const defaultMetricsTab = hasRewrite
+    ? 'rewritten'
+    : metrics
+      ? 'processed'
+      : 'raw'
 
   return (
     <Card>
@@ -353,31 +478,83 @@ export function QualityMetricsPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {hasRewriteReport ? (
-          <Tabs defaultValue="after">
-            <TabsList className="w-full">
-              <TabsTrigger value="before" className="flex-1">
-                Antes
-              </TabsTrigger>
-              <TabsTrigger value="after" className="flex-1">
-                Depois
-              </TabsTrigger>
-            </TabsList>
-            <div className="mt-4">
-              <TabsContent value="before">
-                <QualitySnapshot metrics={metrics} curation={curation} />
-              </TabsContent>
-              <TabsContent value="after">
-                <QualitySnapshot
-                  metrics={transcription.rewrittenQualityMetrics}
-                  curation={transcription.rewrittenLlmCurationData}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-        ) : (
-          <QualitySnapshot metrics={metrics} curation={curation} />
-        )}
+        <ol className="relative grid grid-cols-5 gap-1 lg:gap-0">
+          <span
+            aria-hidden
+            className="bg-border absolute top-4 right-[10%] left-[10%] hidden h-px lg:block"
+          />
+          {PIPELINE_STEPS.map((step, index) => {
+            const isDone = completed.includes(step)
+            const isCurrent = current === step
+            return (
+              <li
+                key={step}
+                className={cn(
+                  'rounded-md border px-1 py-2 text-center text-[10px] leading-tight',
+                  'lg:relative lg:flex lg:flex-col lg:items-center lg:gap-2 lg:rounded-none lg:border-0 lg:bg-transparent lg:px-1 lg:py-0 lg:text-xs',
+                  isDone && 'border-green-600/40 bg-green-500/10 lg:bg-transparent',
+                  isCurrent &&
+                    !isDone &&
+                    'border-primary bg-primary/10 font-medium lg:bg-transparent',
+                  !isDone && !isCurrent && 'text-muted-foreground',
+                )}
+              >
+                <span
+                  className={cn(
+                    'relative z-10 hidden h-8 w-8 items-center justify-center rounded-full border text-[11px] font-semibold lg:flex',
+                    isDone &&
+                      'border-green-600/50 bg-green-500/15 text-green-700 dark:text-green-400',
+                    isCurrent &&
+                      !isDone &&
+                      'border-primary bg-primary text-primary-foreground',
+                    !isDone && !isCurrent && 'border-border bg-background',
+                  )}
+                >
+                  {isDone ? '✓' : index + 1}
+                </span>
+                <span className="lg:max-w-22 lg:leading-snug">
+                  {STEP_LABELS[step]}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+
+        <Tabs defaultValue={defaultMetricsTab}>
+          <TabsList className="grid h-9 w-full grid-cols-3">
+            <TabsTrigger value="raw" className="px-1.5 text-xs sm:text-sm">
+              Bruto
+            </TabsTrigger>
+            <TabsTrigger
+              value="processed"
+              className="px-1.5 text-xs sm:text-sm"
+              disabled={!metrics}
+            >
+              Processado
+            </TabsTrigger>
+            <TabsTrigger
+              value="rewritten"
+              className="px-1.5 text-xs sm:text-sm"
+              disabled={!hasRewrite}
+            >
+              Reescrito
+            </TabsTrigger>
+          </TabsList>
+          <div className="mt-4">
+            <TabsContent value="raw">
+              <QualitySnapshot metrics={rawMetrics} curation={null} />
+            </TabsContent>
+            <TabsContent value="processed">
+              <QualitySnapshot metrics={metrics} curation={curation} />
+            </TabsContent>
+            <TabsContent value="rewritten">
+              <QualitySnapshot
+                metrics={transcription.rewrittenQualityMetrics}
+                curation={transcription.rewrittenLlmCurationData}
+              />
+            </TabsContent>
+          </div>
+        </Tabs>
 
         <div className="space-y-2">
           <Button
@@ -392,40 +569,53 @@ export function QualityMetricsPanel({
             {isProcessing ? 'Processando…' : 'Reprocessar'}
           </Button>
           <Button
-            variant="outline"
+            variant={current === 'deduplicated' ? 'default' : 'outline'}
             className="w-full"
             onClick={handleDeduplicate}
-            disabled={isDeduplicating || !hasContent}
+            disabled={isDeduplicating || !canDedup}
           >
             <CopyMinus
               className={cn('h-4 w-4', isDeduplicating && 'animate-spin')}
             />
-            {isDeduplicating ? 'Deduplicando…' : 'Deduplicar segmentos'}
+            {isDeduplicating
+              ? 'Removendo segmentos…'
+              : 'Remover segmentos duplicados'}
           </Button>
+          {!canDedup && hasRewrite && (
+            <p className="text-muted-foreground text-xs">
+              Reprocesse para invalidar a reescrita antes de remover segmentos.
+            </p>
+          )}
           <Button
-            variant="outline"
+            variant={current === 'curated' ? 'default' : 'outline'}
             className="w-full"
             onClick={handleCurate}
-            disabled={isCurating || !hasContent}
+            disabled={isCurating || !canCurate}
           >
             <Sparkles className={cn('h-4 w-4', isCurating && 'animate-spin')} />
             {isCurating ? 'Curando…' : 'Curadoria LLM'}
           </Button>
+          {!hasDedup && (
+            <p className="text-muted-foreground text-xs">
+              Remova segmentos duplicados antes da curadoria.
+            </p>
+          )}
           <div className="space-y-2">
             <Tabs
               value={rewriteMode}
               onValueChange={(value) => setRewriteMode(value as RewriteMode)}
             >
-              <TabsList className="w-full">
-                <TabsTrigger value="pretraining" className="flex-1">
+              <TabsList className="grid h-9 w-full grid-cols-2">
+                <TabsTrigger value="pretraining" className="px-2 text-xs sm:text-sm">
                   Pré-treino
                 </TabsTrigger>
-                <TabsTrigger value="sft" className="flex-1">
+                <TabsTrigger value="sft" className="px-2 text-xs sm:text-sm">
                   SFT
                 </TabsTrigger>
               </TabsList>
             </Tabs>
             <Button
+              variant={current === 'rewritten' ? 'default' : 'outline'}
               className="w-full"
               onClick={handleRewrite}
               disabled={isRewriting || !canRewrite}
@@ -437,8 +627,9 @@ export function QualityMetricsPanel({
             </Button>
             {!canRewrite && (
               <p className="text-muted-foreground text-xs">
-                Execute a curadoria LLM antes. Itens marcados como Descartar
-                não podem ser reescritos.
+                {isDuplicate
+                  ? 'Vídeos marcados como duplicata não são reescritos.'
+                  : 'Execute a curadoria LLM antes. Itens marcados como Descartar não podem ser reescritos.'}
               </p>
             )}
           </div>

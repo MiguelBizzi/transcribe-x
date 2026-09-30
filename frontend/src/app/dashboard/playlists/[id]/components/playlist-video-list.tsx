@@ -121,6 +121,11 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
                 {video.deduplicationStatus === 'duplicate' && (
                   <Badge variant="outline">Duplicata</Badge>
                 )}
+                {video.status === 'ERROR' && video.errorMessage && (
+                  <span className="text-red-600 dark:text-red-400">
+                    {video.errorMessage}
+                  </span>
+                )}
                 {typeof video.llmCurationScore === 'number' && (
                   <span>LLM {formatQualityScore(video.llmCurationScore)}</span>
                 )}

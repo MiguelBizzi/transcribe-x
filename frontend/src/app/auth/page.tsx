@@ -11,7 +11,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
-import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { getGoogleAuthUrl } from '@/services/auth-service'
 import { Separator } from '@/components/ui/separator'
@@ -324,14 +323,6 @@ export default function Auth() {
               </TabsContent>
             </Tabs>
 
-            <div className="mt-6 text-center">
-              <Link
-                href="/"
-                className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-              >
-                ← Voltar à página inicial
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>

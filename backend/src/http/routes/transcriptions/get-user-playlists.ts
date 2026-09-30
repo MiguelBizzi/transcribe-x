@@ -27,6 +27,7 @@ export async function getUserPlaylists(app: FastifyInstance) {
                                 totalDuration: z.number().nullable(),
                                 totalWordCount: z.number().nullable(),
                                 createdAt: z.string(),
+                                progress: z.number(),
                                 transcriptions: z.array(
                                     z.object({
                                         id: z.string(),
@@ -57,7 +58,22 @@ export async function getUserPlaylists(app: FastifyInstance) {
                     await playlistTranscriptionService.getUserPlaylists(userId)
 
                 return reply.send({
-                    playlists: playlists.map((playlist) => ({
+                    playlists: playlists.map((playlist) => {
+                        const done = playlist.transcriptions.filter(
+                            (item) =>
+                                item.status === 'COMPLETED' ||
+                                item.status === 'ERROR',
+                        ).length
+                        const progress =
+                            playlist.videoCount > 0
+                                ? Math.round(
+                                      (done / playlist.videoCount) * 100,
+                                  )
+                                : playlist.status === 'COMPLETED'
+                                  ? 100
+                                  : 0
+
+                        return {
                         id: playlist.id,
                         youtubeId: playlist.youtubeId,
                         title: playlist.title,
@@ -69,6 +85,7 @@ export async function getUserPlaylists(app: FastifyInstance) {
                         totalDuration: playlist.totalDuration,
                         totalWordCount: playlist.totalWordCount,
                         createdAt: playlist.createdAt.toISOString(),
+                        progress,
                         transcriptions: playlist.transcriptions.map(
                             (transcription) => ({
                                 id: transcription.id,
@@ -82,7 +99,8 @@ export async function getUserPlaylists(app: FastifyInstance) {
                                     transcription.createdAt.toISOString(),
                             }),
                         ),
-                    })),
+                    }
+                    }),
                 })
             } catch (error) {
                 throw new Error(

@@ -305,6 +305,80 @@ export const rewriteTranscriptionAction = actionClient
     }
   })
 
+const rewritePlaylistSchema = z.object({
+  id: z.string().uuid('ID da playlist inválido'),
+  mode: z.enum(['pretraining', 'sft']),
+})
+
+export const curatePlaylistAction = actionClient
+  .inputSchema(deduplicatePlaylistSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        curated: number
+        skipped: number
+        failed: number
+      }>(`/transcriptions/playlists/${id}/curate`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/playlists/${id}`)
+      revalidatePath('/dashboard/transcribe')
+
+      return {
+        success: true as const,
+        curated: response.curated,
+        skipped: response.skipped,
+        failed: response.failed,
+        message: response.message,
+      }
+    } catch (error) {
+      return {
+        success: false as const,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao curar a playlist',
+      }
+    }
+  })
+
+export const rewritePlaylistAction = actionClient
+  .inputSchema(rewritePlaylistSchema)
+  .action(async ({ parsedInput: { id, mode } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        rewritten: number
+        skipped: number
+        failed: number
+      }>(`/transcriptions/playlists/${id}/rewrite`, {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      })
+
+      revalidatePath(`/dashboard/playlists/${id}`)
+      revalidatePath('/dashboard/transcribe')
+
+      return {
+        success: true as const,
+        rewritten: response.rewritten,
+        skipped: response.skipped,
+        failed: response.failed,
+        message: response.message,
+      }
+    } catch (error) {
+      return {
+        success: false as const,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao reescrever a playlist',
+      }
+    }
+  })
+
 const fineTuningExportSchema = z.object({
   scope: z.enum(['playlist', 'user']),
   playlistId: z.string().uuid().optional(),
@@ -338,12 +412,17 @@ export const exportFineTuningAction = actionClient
       }>(`/exports/fine-tuning?${params.toString()}`)
 
       return {
-        success: true,
-        ...response,
+        success: true as const,
+        filename: response.filename,
+        mimeType: response.mimeType,
+        recordCount: response.recordCount,
+        skippedDuplicates: response.skippedDuplicates,
+        skippedDiscarded: response.skippedDiscarded,
+        content: response.content,
       }
     } catch (error) {
       return {
-        success: false,
+        success: false as const,
         message:
           error instanceof Error
             ? error.message

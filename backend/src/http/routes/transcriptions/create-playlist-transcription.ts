@@ -35,6 +35,7 @@ export async function createPlaylistTranscription(app: FastifyInstance) {
                             totalVideos: z.number(),
                             processedVideos: z.number(),
                             failedVideos: z.number(),
+                            status: z.string(),
                         }),
                     }),
                     400: z.object({
@@ -97,6 +98,7 @@ export async function createPlaylistTranscription(app: FastifyInstance) {
                         totalVideos: result.totalVideos,
                         processedVideos: result.processedVideos,
                         failedVideos: result.failedVideos,
+                        status: result.status,
                     },
                 })
             } catch (error) {
