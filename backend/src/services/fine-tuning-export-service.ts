@@ -2,44 +2,26 @@ import { prisma } from '@/lib/prisma'
 import type { LlmCurationData } from './llm-curation-service'
 import type { QualityMetrics } from './text-quality-service'
 import type { RewriteData, RewriteMode } from './llm-rewrite-service'
+import {
+    serializeDataset,
+    type DatasetFormat,
+    type DatasetRecord,
+    type DatasetStage,
+} from './dataset-serializer'
 
-export type FineTuningDataset = 'raw' | 'processed' | 'curated' | 'rewritten'
-export type FineTuningFormat = 'jsonl' | 'csv' | 'json'
-export type FineTuningScope = 'playlist' | 'user'
+export type FineTuningDataset = DatasetStage
+export type FineTuningFormat = DatasetFormat
+export type FineTuningScope = 'playlist' | 'user' | 'transcription'
+export type FineTuningRecord = DatasetRecord
 
 export interface FineTuningExportQuery {
     userId: string
     scope: FineTuningScope
     playlistId?: string
+    transcriptionId?: string
     dataset: FineTuningDataset
     format: FineTuningFormat
     includeDuplicates?: boolean
-}
-
-export interface FineTuningRecord {
-    id: string
-    title: string
-    youtubeId: string
-    language: string | null
-    text: string
-    instruction?: string | null
-    output?: string | null
-    dataset: FineTuningDataset
-    rewriteMode?: RewriteMode | null
-    qualityScore: number | null
-    mtldScore: number | null
-    mattrScore: number | null
-    llmCurationScore: number | null
-    recommendation: LlmCurationData['recommendation'] | null
-    deduplicationStatus: string
-}
-
-function csvEscape(value: string | number | null | undefined): string {
-    const text = value == null ? '' : String(value)
-    if (/[",\n]/.test(text)) {
-        return `"${text.replace(/"/g, '""')}"`
-    }
-    return text
 }
 
 function resolveText(
@@ -77,6 +59,11 @@ export class FineTuningExportService {
         if (query.scope === 'playlist' && !query.playlistId) {
             throw new Error('playlistId is required when scope is playlist')
         }
+        if (query.scope === 'transcription' && !query.transcriptionId) {
+            throw new Error(
+                'transcriptionId is required when scope is transcription',
+            )
+        }
 
         const transcriptions = await prisma.transcription.findMany({
             where: {
@@ -84,12 +71,16 @@ export class FineTuningExportService {
                 ...(query.scope === 'playlist'
                     ? { playlistId: query.playlistId }
                     : {}),
+                ...(query.scope === 'transcription'
+                    ? { id: query.transcriptionId }
+                    : {}),
             },
             orderBy: [{ playlistId: 'asc' }, { videoIndex: 'asc' }],
             select: {
                 id: true,
                 title: true,
                 youtubeId: true,
+                playlistId: true,
                 language: true,
                 content: true,
                 processedContent: true,
@@ -107,7 +98,7 @@ export class FineTuningExportService {
 
         let skippedDuplicates = 0
         let skippedDiscarded = 0
-        const records: FineTuningRecord[] = []
+        const records: DatasetRecord[] = []
 
         for (const transcription of transcriptions) {
             if (
@@ -129,6 +120,22 @@ export class FineTuningExportService {
                 }
             }
 
+            const metrics = transcription.qualityMetrics as QualityMetrics | null
+            const base = {
+                id: transcription.id,
+                title: transcription.title,
+                youtubeId: transcription.youtubeId,
+                playlistId: transcription.playlistId,
+                language: transcription.language,
+                dataset: query.dataset,
+                qualityScore: metrics?.qualityScore ?? null,
+                mtldScore: transcription.mtldScore,
+                mattrScore: transcription.mattrScore,
+                llmCurationScore: transcription.llmCurationScore,
+                recommendation: curation?.recommendation ?? null,
+                deduplicationStatus: transcription.deduplicationStatus,
+            }
+
             if (query.dataset === 'rewritten') {
                 const rewriteData = transcription.rewriteData as RewriteData | null
                 const rewriteMode = (transcription.rewriteMode ||
@@ -138,24 +145,11 @@ export class FineTuningExportService {
                 if (rewriteMode === 'sft' && rewriteData?.pairs?.length) {
                     for (const pair of rewriteData.pairs) {
                         records.push({
-                            id: transcription.id,
-                            title: transcription.title,
-                            youtubeId: transcription.youtubeId,
-                            language: transcription.language,
+                            ...base,
                             text: pair.output,
                             instruction: pair.instruction,
                             output: pair.output,
-                            dataset: query.dataset,
                             rewriteMode,
-                            qualityScore: (
-                                transcription.qualityMetrics as QualityMetrics | null
-                            )?.qualityScore ?? null,
-                            mtldScore: transcription.mtldScore,
-                            mattrScore: transcription.mattrScore,
-                            llmCurationScore: transcription.llmCurationScore,
-                            recommendation: curation?.recommendation ?? null,
-                            deduplicationStatus:
-                                transcription.deduplicationStatus,
                         })
                     }
                     continue
@@ -167,114 +161,30 @@ export class FineTuningExportService {
                 continue
             }
 
-            const metrics = transcription.qualityMetrics as QualityMetrics | null
-
             records.push({
-                id: transcription.id,
-                title: transcription.title,
-                youtubeId: transcription.youtubeId,
-                language: transcription.language,
+                ...base,
                 text,
-                dataset: query.dataset,
+                instruction: null,
+                output: null,
                 rewriteMode: (transcription.rewriteMode as RewriteMode | null) ?? null,
-                qualityScore: metrics?.qualityScore ?? null,
-                mtldScore: transcription.mtldScore,
-                mattrScore: transcription.mattrScore,
-                llmCurationScore: transcription.llmCurationScore,
-                recommendation: curation?.recommendation ?? null,
-                deduplicationStatus: transcription.deduplicationStatus,
             })
         }
 
         const slug =
             query.scope === 'playlist'
                 ? `playlist-${query.playlistId}`
-                : `user-${query.userId}`
-        const filename = `${slug}-${query.dataset}.${query.format}`
-
-        if (query.format === 'csv') {
-            const header = [
-                'id',
-                'title',
-                'youtubeId',
-                'language',
-                'dataset',
-                'rewriteMode',
-                'qualityScore',
-                'mtldScore',
-                'mattrScore',
-                'llmCurationScore',
-                'recommendation',
-                'deduplicationStatus',
-                'instruction',
-                'output',
-                'text',
-            ]
-            const rows = records.map((record) =>
-                [
-                    record.id,
-                    record.title,
-                    record.youtubeId,
-                    record.language,
-                    record.dataset,
-                    record.rewriteMode,
-                    record.qualityScore,
-                    record.mtldScore,
-                    record.mattrScore,
-                    record.llmCurationScore,
-                    record.recommendation,
-                    record.deduplicationStatus,
-                    record.instruction,
-                    record.output,
-                    record.text,
-                ]
-                    .map(csvEscape)
-                    .join(','),
-            )
-
-            return {
-                filename,
-                mimeType: 'text/csv;charset=utf-8',
-                recordCount: records.length,
-                skippedDuplicates,
-                skippedDiscarded,
-                content: [header.join(','), ...rows].join('\n'),
-            }
-        }
-
-        if (query.format === 'jsonl') {
-            const lines = records.map((record) => {
-                if (query.dataset === 'rewritten' && record.instruction && record.output) {
-                    return JSON.stringify({
-                        instruction: record.instruction,
-                        output: record.output,
-                        id: record.id,
-                        title: record.title,
-                        youtubeId: record.youtubeId,
-                        language: record.language,
-                        rewriteMode: record.rewriteMode,
-                    })
-                }
-                return JSON.stringify(record)
-            })
-
-            return {
-                filename,
-                mimeType: 'application/jsonl;charset=utf-8',
-                recordCount: records.length,
-                skippedDuplicates,
-                skippedDiscarded,
-                content: lines.join('\n'),
-            }
-        }
+                : query.scope === 'transcription'
+                  ? `transcription-${query.transcriptionId}`
+                  : `user-${query.userId}`
+        const serialized = serializeDataset(records, query.format, query.dataset)
 
         return {
-            filename,
-            mimeType: 'application/json;charset=utf-8',
+            filename: `${slug}-${query.dataset}.${query.format}`,
+            mimeType: serialized.mimeType,
             recordCount: records.length,
             skippedDuplicates,
             skippedDiscarded,
-            content: JSON.stringify(records, null, 2),
+            content: serialized.content,
         }
     }
 }

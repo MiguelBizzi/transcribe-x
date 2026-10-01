@@ -15,6 +15,7 @@
         "start": "tsx src/http/server.ts",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
+        "test": "tsx --test src/services/*.test.ts",
         "postinstall": "prisma generate",
         "db:migrate": "prisma migrate dev",
         "db:deploy": "prisma migrate deploy",

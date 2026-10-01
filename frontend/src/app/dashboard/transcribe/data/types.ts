@@ -107,7 +107,8 @@ export interface TranscriptionDetail extends Transcription {
   rewrittenLlmCurationData: LlmCurationData | null
 }
 
-export type ExportFormat = 'TXT' | 'PDF' | 'DOCX' | 'JSON'
+export type DatasetFormat = 'jsonl' | 'json' | 'csv' | 'txt' | 'md' | 'xml'
+export type DatasetStage = 'raw' | 'processed' | 'curated' | 'rewritten'
 
 export interface Timestamp {
   text: string

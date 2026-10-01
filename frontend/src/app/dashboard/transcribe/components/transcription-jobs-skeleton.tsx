@@ -46,12 +46,14 @@ export function TranscriptionJobsSkeleton() {
                   </div>
 
                   <div className="flex w-full items-center gap-2 pt-2">
-                    {['TXT', 'PDF', 'DOCX', 'JSON'].map((format) => (
-                      <div
-                        key={format}
-                        className="bg-muted/30 h-7 w-12 animate-pulse rounded border"
-                      />
-                    ))}
+                    {['JSONL', 'JSON', 'CSV', 'TXT', 'MD', 'XML'].map(
+                      (format) => (
+                        <div
+                          key={format}
+                          className="bg-muted/30 h-7 w-12 animate-pulse rounded border"
+                        />
+                      ),
+                    )}
                     <div className="bg-muted/30 h-7 w-16 animate-pulse rounded border" />
                     <div className="bg-muted/30 h-7 w-16 animate-pulse rounded border" />
 

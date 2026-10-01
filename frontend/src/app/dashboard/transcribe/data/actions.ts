@@ -337,9 +337,7 @@ export const curatePlaylistAction = actionClient
       return {
         success: false as const,
         message:
-          error instanceof Error
-            ? error.message
-            : 'Falha ao curar a playlist',
+          error instanceof Error ? error.message : 'Falha ao curar a playlist',
       }
     }
   })
@@ -380,10 +378,11 @@ export const rewritePlaylistAction = actionClient
   })
 
 const fineTuningExportSchema = z.object({
-  scope: z.enum(['playlist', 'user']),
+  scope: z.enum(['playlist', 'user', 'transcription']),
   playlistId: z.string().uuid().optional(),
+  transcriptionId: z.string().uuid().optional(),
   dataset: z.enum(['raw', 'processed', 'curated', 'rewritten']),
-  format: z.enum(['jsonl', 'csv', 'json']),
+  format: z.enum(['jsonl', 'csv', 'json', 'txt', 'md', 'xml']),
   includeDuplicates: z.boolean().optional(),
 })
 
@@ -400,6 +399,10 @@ export const exportFineTuningAction = actionClient
 
       if (parsedInput.playlistId) {
         params.set('playlistId', parsedInput.playlistId)
+      }
+
+      if (parsedInput.transcriptionId) {
+        params.set('transcriptionId', parsedInput.transcriptionId)
       }
 
       const response = await apiFetch<{

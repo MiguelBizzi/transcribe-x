@@ -4,13 +4,11 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Download, Copy, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { ExportFormat, PlaylistJob } from '../data/types'
-import { getExportFormats } from '../data/utils'
+import { type DatasetFormat, PlaylistJob } from '../data/types'
+import { furthestPlaylistStage, getExportFormats } from '../data/utils'
 import { fetchPlaylistForExport } from '../data/actions'
-import {
-  downloadTranscript,
-  playlistToPayload,
-} from '../data/export-transcript'
+import { playlistCopyText } from '../data/export-transcript'
+import { downloadFineTuningDataset } from '../data/download-dataset'
 
 interface PlaylistJobActionsProps {
   playlist: PlaylistJob
@@ -19,17 +17,23 @@ interface PlaylistJobActionsProps {
 export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null)
 
-  const handleDownload = async (format: ExportFormat) => {
+  const handleDownload = async (format: DatasetFormat) => {
     setPendingAction(format)
     try {
       const detail = await fetchPlaylistForExport(playlist.id)
-      downloadTranscript(playlistToPayload(detail), format)
-      toast.success(`${format} baixado`)
+      await downloadFineTuningDataset({
+        scope: 'playlist',
+        playlistId: playlist.id,
+        dataset: furthestPlaylistStage(detail.transcriptions),
+        format,
+        includeDuplicates: false,
+      })
+      toast.success(`${format.toUpperCase()} baixado`)
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Falha ao baixar a transcrição da playlist',
+          : 'Falha ao baixar o dataset da playlist',
       )
     } finally {
       setPendingAction(null)
@@ -40,14 +44,16 @@ export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
     setPendingAction('COPY')
     try {
       const detail = await fetchPlaylistForExport(playlist.id)
-      const content = playlistToPayload(detail).content
+      const content = playlistCopyText(detail)
 
-      if (!content) {
+      if (!content.trim()) {
         throw new Error('Nenhum conteúdo de transcrição disponível para copiar')
       }
 
       await navigator.clipboard.writeText(content)
-      toast.success('Transcrição da playlist copiada para a área de transferência')
+      toast.success(
+        'Transcrição da playlist copiada para a área de transferência',
+      )
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -65,19 +71,19 @@ export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
     <>
       {getExportFormats().map((format) => (
         <Button
-          key={format}
+          key={format.value}
           variant="outline"
           size="sm"
-          onClick={() => handleDownload(format)}
+          onClick={() => handleDownload(format.value)}
           disabled={isBusy}
           className="text-xs"
         >
-          {pendingAction === format ? (
+          {pendingAction === format.value ? (
             <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           ) : (
             <Download className="mr-1 h-3 w-3" />
           )}
-          {format}
+          {format.label}
         </Button>
       ))}
       <Button

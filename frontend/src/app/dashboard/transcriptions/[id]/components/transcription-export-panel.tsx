@@ -7,14 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
-  ExportFormat,
+  DatasetFormat,
+  DatasetStage,
   TranscriptionDetail,
 } from '@/app/dashboard/transcribe/data/types'
 import { getExportFormats } from '@/app/dashboard/transcribe/data/utils'
-import {
-  downloadTranscript,
-  transcriptionToPayload,
-} from '@/app/dashboard/transcribe/data/export-transcript'
+import { downloadFineTuningDataset } from '@/app/dashboard/transcribe/data/download-dataset'
 
 interface TranscriptionExportPanelProps {
   transcription: TranscriptionDetail
@@ -22,27 +20,37 @@ interface TranscriptionExportPanelProps {
 
 type ExportSource = 'raw' | 'clean' | 'rewritten'
 
+const SOURCE_DATASET: Record<ExportSource, DatasetStage> = {
+  raw: 'raw',
+  clean: 'processed',
+  rewritten: 'rewritten',
+}
+
 export function TranscriptionExportPanel({
   transcription,
 }: TranscriptionExportPanelProps) {
   const canExportClean = Boolean(transcription.processedContent?.trim())
   const canExportRewritten = Boolean(transcription.rewrittenContent?.trim())
   const [source, setSource] = useState<ExportSource>(
-    canExportRewritten ? 'rewritten' : transcription.isProcessed ? 'clean' : 'raw',
+    canExportRewritten
+      ? 'rewritten'
+      : transcription.isProcessed
+        ? 'clean'
+        : 'raw',
   )
-  const [pendingFormat, setPendingFormat] = useState<ExportFormat | null>(null)
+  const [pendingFormat, setPendingFormat] = useState<DatasetFormat | null>(null)
 
-  const handleDownload = (format: ExportFormat) => {
+  const handleDownload = async (format: DatasetFormat) => {
     setPendingFormat(format)
     try {
-      downloadTranscript(
-        transcriptionToPayload(transcription, {
-          useProcessed: source === 'clean',
-          useRewritten: source === 'rewritten',
-        }),
+      await downloadFineTuningDataset({
+        scope: 'transcription',
+        transcriptionId: transcription.id,
+        dataset: SOURCE_DATASET[source],
         format,
-      )
-      toast.success(`${format} baixado`)
+        includeDuplicates: true,
+      })
+      toast.success(`${format.toUpperCase()} baixado`)
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -57,7 +65,7 @@ export function TranscriptionExportPanel({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle>Exportar</CardTitle>
+        <CardTitle>Exportar dataset</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
@@ -78,18 +86,18 @@ export function TranscriptionExportPanel({
         <div className="flex flex-wrap gap-2">
           {getExportFormats().map((format) => (
             <Button
-              key={format}
+              key={format.value}
               variant="outline"
               size="sm"
-              onClick={() => handleDownload(format)}
+              onClick={() => handleDownload(format.value)}
               disabled={pendingFormat !== null}
             >
-              {pendingFormat === format ? (
+              {pendingFormat === format.value ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Download className="h-3.5 w-3.5" />
               )}
-              {format}
+              {format.label}
             </Button>
           ))}
         </div>

@@ -8,43 +8,27 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type {
-  ExportFormat,
+  DatasetFormat,
   PlaylistDetail,
   RewriteMode,
 } from '@/app/dashboard/transcribe/data/types'
 import {
   curateTranscriptionAction,
   deduplicatePlaylistAction,
-  exportFineTuningAction,
   rewriteTranscriptionAction,
 } from '@/app/dashboard/transcribe/data/actions'
 import { getExportFormats } from '@/app/dashboard/transcribe/data/utils'
-import {
-  downloadTranscript,
-  playlistToPayload,
-} from '@/app/dashboard/transcribe/data/export-transcript'
+import { downloadFineTuningDataset } from '@/app/dashboard/transcribe/data/download-dataset'
 
 interface PlaylistCurationPanelProps {
   playlist: PlaylistDetail
 }
 
 type Dataset = 'raw' | 'processed' | 'curated' | 'rewritten'
-type ExportKind = 'text' | 'dataset'
-type TextSource = 'raw' | 'clean'
 
-function triggerDownload(filename: string, mimeType: string, content: string) {
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) {
+export function PlaylistCurationPanel({
+  playlist,
+}: PlaylistCurationPanelProps) {
   const router = useRouter()
   const videos = playlist.transcriptions
   const completed = videos.filter((video) => video.status === 'COMPLETED')
@@ -66,8 +50,6 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
   const [isCurating, setIsCurating] = useState(false)
   const [isRewriting, setIsRewriting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [pendingFormat, setPendingFormat] = useState<ExportFormat | null>(null)
-  const [exportKind, setExportKind] = useState<ExportKind>('dataset')
   const [dataset, setDataset] = useState<Dataset>(
     rewrittenCount > 0
       ? 'rewritten'
@@ -77,10 +59,7 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
           ? 'processed'
           : 'raw',
   )
-  const [format, setFormat] = useState<'jsonl' | 'csv' | 'json'>('jsonl')
-  const [textSource, setTextSource] = useState<TextSource>(
-    processedCount > 0 ? 'clean' : 'raw',
-  )
+  const [format, setFormat] = useState<DatasetFormat>('jsonl')
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>('pretraining')
   const [batchProgress, setBatchProgress] = useState<string | null>(null)
   const [lastExportCounts, setLastExportCounts] = useState<{
@@ -223,37 +202,15 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
   const handleDatasetExport = async () => {
     setIsExporting(true)
     try {
-      const result = await exportFineTuningAction({
+      const counts = await downloadFineTuningDataset({
         scope: 'playlist',
         playlistId: playlist.id,
         dataset,
         format,
         includeDuplicates: false,
       })
-
-      if (result.serverError) {
-        throw new Error(result.serverError)
-      }
-
-      if (!result.data || result.data.success !== true || !('content' in result.data)) {
-        throw new Error(
-          result.data && 'message' in result.data
-            ? result.data.message
-            : 'Falha ao exportar',
-        )
-      }
-
-      setLastExportCounts({
-        recordCount: result.data.recordCount,
-        skippedDuplicates: result.data.skippedDuplicates,
-        skippedDiscarded: result.data.skippedDiscarded,
-      })
-      triggerDownload(
-        result.data.filename,
-        result.data.mimeType,
-        result.data.content,
-      )
-      toast.success(`${result.data.recordCount} exemplos exportados`)
+      setLastExportCounts(counts)
+      toast.success(`${counts.recordCount} exemplos exportados`)
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -262,25 +219,6 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
       )
     } finally {
       setIsExporting(false)
-    }
-  }
-
-  const handleTextExport = (exportFormat: ExportFormat) => {
-    setPendingFormat(exportFormat)
-    try {
-      downloadTranscript(
-        playlistToPayload(playlist, { useProcessed: textSource === 'clean' }),
-        exportFormat,
-      )
-      toast.success(`${exportFormat} baixado`)
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Falha ao baixar a transcrição da playlist',
-      )
-    } finally {
-      setPendingFormat(null)
     }
   }
 
@@ -331,7 +269,9 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
               disabled={isDeduplicating || completed.length < 2}
             >
               <CopyMinus
-                className={isDeduplicating ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
+                className={
+                  isDeduplicating ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'
+                }
               />
               {isDeduplicating ? 'Marcando…' : 'Marcar duplicatas da playlist'}
             </Button>
@@ -342,7 +282,9 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
               disabled={isCurating || dedupedCount === 0}
             >
               <Sparkles
-                className={isCurating ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
+                className={
+                  isCurating ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'
+                }
               />
               {isCurating
                 ? `Curando ${batchProgress ?? '…'}`
@@ -364,7 +306,9 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
               disabled={isRewriting || curatedCount === 0}
             >
               <PenLine
-                className={isRewriting ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
+                className={
+                  isRewriting ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'
+                }
               />
               {isRewriting
                 ? `Reescrevendo ${batchProgress ?? '…'}`
@@ -373,121 +317,79 @@ export function PlaylistCurationPanel({ playlist }: PlaylistCurationPanelProps) 
           </div>
         </div>
 
-        <Tabs
-          value={exportKind}
-          onValueChange={(value) => setExportKind(value as ExportKind)}
-        >
-          <TabsList className="h-9 w-full max-w-md">
-            <TabsTrigger value="text" className="px-3">
-              Baixar texto
-            </TabsTrigger>
-            <TabsTrigger value="dataset" className="px-3">
-              Dataset para treino
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        {exportKind === 'text' ? (
+        <div className="space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Tabs
-              value={textSource}
-              onValueChange={(value) => setTextSource(value as TextSource)}
+              value={dataset}
+              onValueChange={(value) => setDataset(value as Dataset)}
             >
-              <TabsList>
-                <TabsTrigger value="raw">Original</TabsTrigger>
-                <TabsTrigger value="clean" disabled={processedCount === 0}>
+              <TabsList className="h-9 max-w-full">
+                <TabsTrigger value="raw" className="px-2.5 text-xs sm:text-sm">
+                  Bruto
+                </TabsTrigger>
+                <TabsTrigger
+                  value="processed"
+                  className="px-2.5 text-xs sm:text-sm"
+                >
                   Processado
+                </TabsTrigger>
+                <TabsTrigger
+                  value="curated"
+                  className="px-2.5 text-xs sm:text-sm"
+                >
+                  Curado
+                </TabsTrigger>
+                <TabsTrigger
+                  value="rewritten"
+                  className="px-2.5 text-xs sm:text-sm"
+                >
+                  Reescrito
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="flex flex-wrap gap-2">
-              {getExportFormats().map((exportFormat) => (
-                <Button
-                  key={exportFormat}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleTextExport(exportFormat)}
-                  disabled={pendingFormat !== null}
-                >
-                  {pendingFormat === exportFormat ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Download className="h-3.5 w-3.5" />
-                  )}
-                  {exportFormat}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Tabs
-                value={dataset}
-                onValueChange={(value) => setDataset(value as Dataset)}
-              >
-                <TabsList className="h-9 max-w-full">
-                  <TabsTrigger value="raw" className="px-2.5 text-xs sm:text-sm">
-                    Bruto
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="processed"
-                    className="px-2.5 text-xs sm:text-sm"
-                  >
-                    Processado
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="curated"
-                    className="px-2.5 text-xs sm:text-sm"
-                  >
-                    Curado
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="rewritten"
-                    className="px-2.5 text-xs sm:text-sm"
-                  >
-                    Reescrito
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <Tabs
-                value={format}
-                onValueChange={(value) => setFormat(value as 'jsonl' | 'csv' | 'json')}
-              >
-                <TabsList>
-                  <TabsTrigger value="jsonl">JSONL</TabsTrigger>
-                  <TabsTrigger value="csv">CSV</TabsTrigger>
-                  <TabsTrigger value="json">JSON</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Antes do download: {previewRecordCount} registros,{' '}
-              {previewSkippedDuplicates} duplicatas omitidas,{' '}
-              {previewSkippedDiscarded} descartes omitidos.
-            </p>
-            {lastExportCounts && (
-              <p className="text-muted-foreground text-xs">
-                Último export: {lastExportCounts.recordCount} registros,{' '}
-                {lastExportCounts.skippedDuplicates} duplicatas omitidas,{' '}
-                {lastExportCounts.skippedDiscarded} descartes omitidos.
-              </p>
-            )}
-            <Button
-              variant="outline"
-              className="w-full sm:w-fit"
-              onClick={handleDatasetExport}
-              disabled={isExporting}
+            <Tabs
+              value={format}
+              onValueChange={(value) => setFormat(value as DatasetFormat)}
             >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Exportar dataset
-            </Button>
+              <TabsList className="h-auto max-w-full flex-wrap">
+                {getExportFormats().map((exportFormat) => (
+                  <TabsTrigger
+                    key={exportFormat.value}
+                    value={exportFormat.value}
+                    className="px-2.5 text-xs sm:text-sm"
+                  >
+                    {exportFormat.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
-        )}
+          <p className="text-muted-foreground text-xs">
+            Antes do download: {previewRecordCount} registros,{' '}
+            {previewSkippedDuplicates} duplicatas omitidas,{' '}
+            {previewSkippedDiscarded} descartes omitidos.
+          </p>
+          {lastExportCounts && (
+            <p className="text-muted-foreground text-xs">
+              Último export: {lastExportCounts.recordCount} registros,{' '}
+              {lastExportCounts.skippedDuplicates} duplicatas omitidas,{' '}
+              {lastExportCounts.skippedDiscarded} descartes omitidos.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="w-full sm:w-fit"
+            onClick={handleDatasetExport}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Exportar dataset
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

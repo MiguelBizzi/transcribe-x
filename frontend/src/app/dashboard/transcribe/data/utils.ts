@@ -1,4 +1,4 @@
-import { ExportFormat, UrlType, UrlTypeInfo } from './types'
+import { DatasetFormat, DatasetStage, UrlType, UrlTypeInfo } from './types'
 import { PlaySquare, ListVideo, Youtube, Link } from 'lucide-react'
 
 export const detectUrls = (text: string): string[] => {
@@ -63,12 +63,61 @@ export const getUrlTypeInfo = (urlType: UrlType): UrlTypeInfo | null => {
   }
 }
 
-export const getExportFormats = (): ExportFormat[] => [
-  'TXT',
-  'PDF',
-  'DOCX',
-  'JSON',
+export const DATASET_FORMATS: { value: DatasetFormat; label: string }[] = [
+  { value: 'jsonl', label: 'JSONL' },
+  { value: 'json', label: 'JSON' },
+  { value: 'csv', label: 'CSV' },
+  { value: 'txt', label: 'TXT' },
+  { value: 'md', label: 'MD' },
+  { value: 'xml', label: 'XML' },
 ]
+
+export const getExportFormats = () => DATASET_FORMATS
+
+export function furthestDatasetStage(input: {
+  rewrittenContent?: string | null
+  processedContent?: string | null
+  isProcessed?: boolean
+  llmCurationScore?: number | null
+  recommendation?: string | null
+}): DatasetStage {
+  const discarded = input.recommendation === 'discard'
+  if (input.rewrittenContent?.trim() && !discarded) return 'rewritten'
+  if (input.llmCurationScore != null && !discarded) return 'curated'
+  if (input.isProcessed || input.processedContent?.trim()) return 'processed'
+  return 'raw'
+}
+
+export function furthestPlaylistStage(
+  videos: {
+    rewrittenContent?: string | null
+    processedContent?: string | null
+    isProcessed?: boolean
+    llmCurationScore?: number | null
+    llmCurationData?: { recommendation?: string | null } | null
+  }[],
+): DatasetStage {
+  let stage: DatasetStage = 'raw'
+  const rank: Record<DatasetStage, number> = {
+    raw: 0,
+    processed: 1,
+    curated: 2,
+    rewritten: 3,
+  }
+
+  for (const video of videos) {
+    const candidate = furthestDatasetStage({
+      rewrittenContent: video.rewrittenContent,
+      processedContent: video.processedContent,
+      isProcessed: video.isProcessed,
+      llmCurationScore: video.llmCurationScore,
+      recommendation: video.llmCurationData?.recommendation,
+    })
+    if (rank[candidate] > rank[stage]) stage = candidate
+  }
+
+  return stage
+}
 
 export const getBulkModePlaceholder = (): string => {
   return 'Cole uma ou mais URLs de vídeo ou playlist do YouTube (uma por linha):\n\nhttps://youtube.com/watch?v=...\nhttps://youtube.com/playlist?list=...'

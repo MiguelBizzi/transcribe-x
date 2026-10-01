@@ -8,11 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { PlaylistVideoTranscription } from '@/app/dashboard/transcribe/data/types'
-import { fetchTranscriptionForExport } from '@/app/dashboard/transcribe/data/actions'
-import {
-  downloadTranscript,
-  transcriptionToPayload,
-} from '@/app/dashboard/transcribe/data/export-transcript'
+import { furthestDatasetStage } from '@/app/dashboard/transcribe/data/utils'
+import { downloadFineTuningDataset } from '@/app/dashboard/transcribe/data/download-dataset'
 import { formatQualityScore, getQualityTone } from '@/utils/format-duration'
 import { formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
@@ -44,12 +41,20 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
   const handleDownload = async (video: PlaylistVideoTranscription) => {
     setPendingId(video.id)
     try {
-      const detail = await fetchTranscriptionForExport(video.id)
-      downloadTranscript(
-        transcriptionToPayload(detail, { useProcessed: detail.isProcessed }),
-        'TXT',
-      )
-      toast.success('TXT baixado')
+      await downloadFineTuningDataset({
+        scope: 'transcription',
+        transcriptionId: video.id,
+        dataset: furthestDatasetStage({
+          rewrittenContent: video.rewrittenContent,
+          processedContent: video.processedContent,
+          isProcessed: video.isProcessed,
+          llmCurationScore: video.llmCurationScore,
+          recommendation: video.llmCurationData?.recommendation,
+        }),
+        format: 'jsonl',
+        includeDuplicates: true,
+      })
+      toast.success('JSONL baixado')
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -115,7 +120,8 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
                       scoreClass(video.qualityMetrics.qualityScore),
                     )}
                   >
-                    Pontuação {formatQualityScore(video.qualityMetrics.qualityScore)}
+                    Pontuação{' '}
+                    {formatQualityScore(video.qualityMetrics.qualityScore)}
                   </span>
                 )}
                 {video.deduplicationStatus === 'duplicate' && (

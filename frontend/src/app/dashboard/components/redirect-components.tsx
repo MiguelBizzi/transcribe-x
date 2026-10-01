@@ -30,7 +30,7 @@ export function RedirectComponents() {
         <CardContent>
           <p className="text-muted-foreground mb-4">
             Transcreva vídeos avulsos, playlists ou canais inteiros em lote.
-            Baixe em vários formatos (TXT, PDF, DOCX, JSON).
+            Baixe o dataset em JSONL, JSON, CSV, TXT, MD ou XML.
           </p>
           <Button className="w-full" variant="outline" size="lg">
             Começar a transcrever

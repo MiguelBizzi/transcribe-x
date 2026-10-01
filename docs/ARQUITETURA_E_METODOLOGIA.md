@@ -184,7 +184,7 @@ Entidades principais (Prisma / PostgreSQL):
 | `rewrittenLlmCurationScore`, `rewrittenLlmCurationData` | Curadoria **do texto reescrito** |
 | `playlistId`, `videoIndex`, `isPlaylistVideo` | Vínculo com playlist |
 
-**Export.** Histórico de arquivos gerados (TXT, PDF, DOCX, JSON) — formato de *download de transcrição*, distinto do export de fine-tuning.
+**Export.** Tabela de histórico (`exports`) com o enum legado `TXT | PDF | DOCX | JSON`. O download atual não grava nessa tabela: ele é gerado sob demanda como dataset (seção 11), nos formatos JSON, JSONL, CSV, TXT, MD e XML.
 
 **RecentActivity.** Auditoria simples de ações do usuário.
 
@@ -271,7 +271,7 @@ flowchart TD
     discard{recommendation?}
     wrap[rewrittenContent]
     metrics2[métricas e curadoria do reescrito]
-    export[Export JSONL / CSV / JSON]
+    export[Export JSON, JSONL, CSV, TXT, MD, XML]
 
     raw --> clean
     clean --> dedupV
@@ -592,7 +592,7 @@ O corpo da requisição é `{ "mode": "pretraining" | "sft" }`. A UI pré-seleci
 
 **Modo `pretraining`.** Prosa enciclopédica/narrativa contínua. Saída JSON `{ "rewritten": "..." }`. Chunks são concatenados com linha em branco.
 
-**Modo `sft`.** Pares instrução–resposta **ancorados só no transcript**. Saída `{ "pairs": [{ "instruction", "output" }] }`. O texto persistido em `rewrittenContent` é uma renderização Markdown dos pares; os pares estruturados ficam em `rewriteData.pairs` para o export JSONL no formato `{ "instruction", "output" }`.
+**Modo `sft`.** Pares instrução–resposta **ancorados só no transcript**. Saída `{ "pairs": [{ "instruction", "output" }] }`. O texto persistido em `rewrittenContent` é uma renderização Markdown dos pares; os pares estruturados ficam em `rewriteData.pairs`. No export, cada par vira um registro completo (`instruction`, `output` e `text` igual a `output`), com os mesmos metadados dos outros formatos.
 
 ### 10.4 Chunking
 
@@ -614,14 +614,17 @@ A UI do relatório de qualidade ganha abas **Antes** e **Depois**, permitindo co
 
 Endpoint: `GET /exports/fine-tuning`.
 
+Todo arquivo baixado é um dataset do estágio escolhido. Os seis formatos carregam os mesmos campos; o que muda é só a serialização. PDF e DOCX não fazem parte da exportação.
+
 ### 11.1 Parâmetros
 
 | Query | Valores | Efeito |
 | --- | --- | --- |
-| `scope` | `user` \| `playlist` | Corpus do usuário ou de uma playlist |
+| `scope` | `user` \| `playlist` \| `transcription` | Corpus do usuário, de uma playlist ou de um vídeo |
 | `playlistId` | UUID | Obrigatório se `scope=playlist` |
+| `transcriptionId` | UUID | Obrigatório se `scope=transcription` |
 | `dataset` | `raw` \| `processed` \| `curated` \| `rewritten` | Qual versão do texto |
-| `format` | `jsonl` \| `csv` \| `json` | Serialização |
+| `format` | `jsonl` \| `json` \| `csv` \| `txt` \| `md` \| `xml` | Serialização |
 | `includeDuplicates` | `true` \| `false` | Incluir itens `duplicate` |
 
 ### 11.2 Regras de inclusão
@@ -629,23 +632,145 @@ Endpoint: `GET /exports/fine-tuning`.
 - **`raw`:** `content`. Duplicatas omitidas por padrão.
 - **`processed`:** `processedContent` (fallback `content`).
 - **`curated`:** exige `llmCurationData`; **exclui** `recommendation = discard`.
-- **`rewritten`:** exige texto reescrito; também exclui `discard`; no modo SFT, **explode** um registro por par `instruction`/`output`.
+- **`rewritten`:** exige texto reescrito; também exclui `discard`; no modo SFT, **explode** um registro por par `instruction`/`output`. Nesse caso `text` é igual a `output`. Nos outros estágios, `instruction` e `output` ficam vazios e `text` carrega a prosa.
 
 Contadores `skippedDuplicates` e `skippedDiscarded` voltam na resposta para o relatório experimental.
 
-### 11.3 Formatos
+### 11.3 Campos
 
-JSONL é o formato nativo de SFT. No dataset `rewritten` com pares:
+Cada registro, em qualquer formato, tem exatamente estas chaves, sempre presentes. Valor ausente é `null` (JSON, JSONL e Markdown), string vazia (CSV e TXT) ou elemento vazio (XML):
+
+`id`, `title`, `youtubeId`, `playlistId`, `language`, `dataset`, `rewriteMode`, `deduplicationStatus`, `qualityScore`, `mtldScore`, `mattrScore`, `llmCurationScore`, `recommendation`, `instruction`, `output`, `text`.
+
+O JSONL de SFT não é um objeto reduzido: a linha traz o registro inteiro, inclusive as métricas. Isso permite filtrar *a posteriori* por limiar de MATTR ou de nota do juiz sem reprocessar o corpus.
+
+### 11.4 Formatos
+
+**JSON** (`application/json`). Array de registros.
 
 ```json
-{"instruction":"...","output":"...","id":"...","title":"...","youtubeId":"...","language":"pt","rewriteMode":"sft"}
+[
+  {
+    "id": "...",
+    "title": "...",
+    "youtubeId": "...",
+    "playlistId": "...",
+    "language": "pt",
+    "dataset": "rewritten",
+    "rewriteMode": "sft",
+    "deduplicationStatus": "kept",
+    "qualityScore": 0.9,
+    "mtldScore": 50,
+    "mattrScore": 0.8,
+    "llmCurationScore": 0.88,
+    "recommendation": "sft_example",
+    "instruction": "...",
+    "output": "...",
+    "text": "..."
+  }
+]
 ```
 
-Nos demais casos, cada linha (ou objeto JSON) carrega metadados de qualidade: `qualityScore`, `mtldScore`, `mattrScore`, `llmCurationScore`, `recommendation`, `deduplicationStatus`. Isso permite, no experimento, filtrar *a posteriori* por limiar de MATTR ou de nota do juiz sem reprocessar o corpus.
+**JSONL** (`application/jsonl`). Um objeto por linha, com as mesmas chaves.
 
-A playlist, na UI, oferece o mesmo recorte (`raw` / `processed` / `curated` / `rewritten`) e dispara o download no browser.
+**CSV** (`text/csv`). Cabeçalho fixo na ordem dos campos acima. Células com vírgula, aspas ou quebra de linha vão entre aspas, com aspas internas duplicadas.
 
-Há ainda export “de leitura” da transcrição individual (TXT e afins), separado deste pipeline de dataset.
+**TXT** (`text/plain`). Cabeçalho `# dataset:` e `# records:`. Cada exemplo fica entre `<<<RECORD>>>` e `<<<END>>>`. Escalares em `chave: valor`. `instruction`, `output` e `text` em blocos `chave<<<` … `>>>`. Uma linha de conteúdo que seja exatamente `>>>`, `<<<RECORD>>>` ou `<<<END>>>` é prefixada com `\`.
+
+```text
+# dataset: rewritten
+# records: 1
+
+<<<RECORD>>>
+id: ...
+title: ...
+youtubeId: ...
+playlistId: ...
+language: pt
+dataset: rewritten
+rewriteMode: sft
+deduplicationStatus: kept
+qualityScore: 0.9
+mtldScore: 50
+mattrScore: 0.8
+llmCurationScore: 0.88
+recommendation: sft_example
+instruction<<<
+...
+>>>
+output<<<
+...
+>>>
+text<<<
+...
+>>>
+<<<END>>>
+```
+
+**MD** (`text/markdown`). Cabeçalho com estágio e contagem. Cada registro abre com front matter dos campos escalares e segue com as seções `## instruction`, `## output` e `## text`.
+
+```markdown
+# Dataset
+
+- stage: rewritten
+- records: 1
+
+---
+id: "..."
+title: "..."
+youtubeId: "..."
+playlistId: "..."
+language: "pt"
+dataset: "rewritten"
+rewriteMode: "sft"
+deduplicationStatus: "kept"
+qualityScore: 0.9
+mtldScore: 50
+mattrScore: 0.8
+llmCurationScore: 0.88
+recommendation: "sft_example"
+---
+
+## instruction
+
+...
+
+## output
+
+...
+
+## text
+
+...
+```
+
+**XML** (`application/xml`). Raiz `<dataset recordCount="N" stage="...">`. Cada exemplo é um `<record>` e cada campo é um elemento, com texto escapado. Não há atributo de conteúdo no registro.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<dataset recordCount="1" stage="rewritten">
+  <record>
+    <id>...</id>
+    <title>...</title>
+    <youtubeId>...</youtubeId>
+    <playlistId>...</playlistId>
+    <language>pt</language>
+    <dataset>rewritten</dataset>
+    <rewriteMode>sft</rewriteMode>
+    <deduplicationStatus>kept</deduplicationStatus>
+    <qualityScore>0.9</qualityScore>
+    <mtldScore>50</mtldScore>
+    <mattrScore>0.8</mattrScore>
+    <llmCurationScore>0.88</llmCurationScore>
+    <recommendation>sft_example</recommendation>
+    <instruction>...</instruction>
+    <output>...</output>
+    <text>...</text>
+  </record>
+</dataset>
+```
+
+A playlist, a página da transcrição e os jobs disparam esse endpoint. O seletor de estágio (`raw` / `processed` / `curated` / `rewritten`) continua disponível; o padrão da tela é o estágio mais avançado já produzido. O download explícito de um vídeo envia `includeDuplicates=true`, para o arquivo não sair vazio só porque aquele item foi marcado como duplicata. A exportação da playlist mantém a omissão padrão.
 
 ---
 
@@ -660,15 +785,16 @@ O frontend não é apenas vitrine: ele materializa a metodologia.
 - Abas de texto: **Original**, **Processado**, **Reescrito**.
 - Painel **Relatório de qualidade**: \(Q\), ruído (diagnóstico, fora do score), TTR enviesado, MATTR, MTLD, taxa de artefatos, vírgulas órfãs, letras soltas, hesitações, repetições, timestamps, língua. Abas Bruto, Processado e Reescrito usam a mesma função, cada uma sobre o próprio texto.
 - Ações: Reprocessar, Deduplicar segmentos, Curadoria LLM, Reescrever (WRAP) com seletor Pré-treino / SFT.
+- Exportar dataset (JSONL, JSON, CSV, TXT, MD, XML) no estágio Original, Processado ou Reescrito.
 - Após WRAP: abas **Antes / Depois** no relatório.
 
 **Página da playlist (`/dashboard/playlists/[id]`).**
 
 - Lista de vídeos com status de dedup, nota de curadoria e modo WRAP.
 - Botão de deduplicação da playlist.
-- Export de fine-tuning com seletor de dataset e formato.
+- Export de fine-tuning com seletor de estágio e de formato (JSONL, JSON, CSV, TXT, MD, XML).
 
-Fluxo de tela alinhado ao fluxo científico: o pesquisador vê o bruto, o limpo e o reescrito lado a lado, com números, antes de baixar o JSONL.
+Fluxo de tela alinhado ao fluxo científico: o pesquisador vê o bruto, o limpo e o reescrito lado a lado, com números, antes de baixar o dataset.
 
 ---
 
@@ -775,7 +901,7 @@ As referências abaixo fundamentam escolhas de implementação. Completar com da
 | Deduplicação | `backend/scripts/deduplicator.py`, `text-dedup-service.ts` |
 | Curadoria LLM | `backend/scripts/llm_curator.py`, `llm-curation-service.ts` |
 | Reescrita WRAP | `backend/scripts/llm_rewriter.py`, `llm-rewrite-service.ts` |
-| Export de dataset | `fine-tuning-export-service.ts`, `export-fine-tuning.ts` |
+| Export de dataset | `dataset-serializer.ts`, `fine-tuning-export-service.ts`, `export-fine-tuning.ts` |
 | Schema | `backend/prisma/schema.prisma` |
 | UI de métricas / Antes–Depois | `quality-metrics-panel.tsx` |
 | UI de texto Original / Processado / Reescrito | `transcript-content.tsx` |
