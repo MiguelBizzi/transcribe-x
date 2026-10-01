@@ -5,7 +5,7 @@ export const qualityMetricsSchema = z.object({
     processedWordCount: z.number(),
     noiseReductionRate: z.number(),
     lexicalDiversity: z.number(),
-    mtldScore: z.number().optional(),
+    mtldScore: z.number().nullish(),
     mattrScore: z.number().optional(),
     avgSentenceLength: z.number(),
     hesitationCount: z.number(),
@@ -13,6 +13,9 @@ export const qualityMetricsSchema = z.object({
     timestampMarkersRemoved: z.number(),
     detectedLanguage: z.string(),
     processingDurationMs: z.number(),
+    artifactRate: z.number().optional(),
+    residualCommaCount: z.number().optional(),
+    residualLetterCount: z.number().optional(),
     qualityScore: z.number(),
 })
 

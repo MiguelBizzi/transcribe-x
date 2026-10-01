@@ -318,17 +318,20 @@ O processador recebe `{ text, language_code, is_generated }` e devolve `{ proces
 
 4. **Colapso de repetições.** Detecta n-gramas imediatos de tamanho 3, 2 e 1 (`"vamos vamos vamos"` → `"vamos"`). Conta tokens removidos.
 5. **Correção ortográfica condicional.** `pyspellchecker` só se `is_generated = true`, língua em `{en, es, fr, pt, de}` e texto ≤ 2.500 palavras. Tokens curtos (< 4 letras) e não alfabéticos são ignorados; a capitalização é preservada.
-6. **Normalização de sentenças.** Espaços, reticências, pontuação colada, capitalização da primeira letra de cada sentença, ponto final se ausente.
+6. **Limpeza residual.** Roda depois do corretor e antes da normalização, porque a remoção de hesitações apaga o token e deixa a pontuação em volta (`né,` vira uma vírgula solta) e porque o corretor não mexe em tokens de uma letra (`q`, `x`).
+   - Vírgula que não está entre duas palavras: vírgula inicial, `,,` e vírgula imediatamente antes de `.!?;:`.
+   - Letra isolada que não é palavra funcional da língua detectada. Listas: português `a à e é o ó`; inglês `a i`; espanhol `a e o y`. Língua fora dessa lista usa a união das três, para não apagar uma palavra funcional quando a detecção falha.
+7. **Normalização de sentenças.** Espaços, reticências, pontuação colada, capitalização da primeira letra de cada sentença, ponto final se ausente. Só acontece depois da limpeza residual, para não capitalizar uma vírgula órfã (` , bom` não vira `, Bom`).
 
 O resultado é `processedContent`. O bruto permanece em `content`, o que torna o pipeline **reversível** para comparação experimental.
 
-Há um modo `analyze_only`: calcula as mesmas métricas **sem alterar o texto**. É o que a reescrita WRAP usa para pontuar o texto já reescrito, usando o processado como `reference_text` (para a taxa de redução de ruído ter um baseline).
+Há um modo `analyze_only`: calcula as mesmas métricas **sem alterar o texto**. Bruto, processado e reescrito passam pela mesma função, cada um sobre o próprio texto. O `reference_text` (usado na reescrita WRAP) só alimenta a taxa de redução de ruído. Essa taxa fica fora do score, salvo a penalidade quando a redução passa de 0,75.
 
 ---
 
 ## 7. Métricas de qualidade textual
 
-Todas as métricas abaixo são calculadas sobre o texto **já processado**, salvo a taxa de ruído, que compara original × processado.
+Cada versão — bruto, processado e reescrito — recebe a mesma função sobre o próprio texto. A taxa de ruído é o número que compara duas versões. Ela fica fora do score, salvo a penalidade quando a redução passa de 0,75.
 
 ### 7.1 Inventário
 
@@ -343,9 +346,12 @@ Todas as métricas abaixo são calculadas sobre o texto **já processado**, salv
 | Hesitações | `hesitationCount` | *Fillers* antes da remoção |
 | Repetições | `repetitionCount` | Tokens colapsados |
 | Timestamps removidos | `timestampMarkersRemoved` | Ruído de legenda |
+| Taxa de artefatos | `artifactRate` | Vírgulas órfãs + letras soltas, sobre o número de tokens |
+| Vírgulas órfãs | `residualCommaCount` | Vírgulas que não ligam duas palavras |
+| Letras soltas | `residualLetterCount` | Letras isoladas fora da lista funcional da língua |
 | Idioma detectado | `detectedLanguage` | `langdetect` |
 | Tempo de processamento | `processingDurationMs` | Custo operacional |
-| Score composto | `qualityScore` | Heurística interna ∈ [0, 1] |
+| Score de limpeza | `qualityScore` | Heurística interna ∈ [0, 1], sem o termo de ruído |
 
 Tokenização: regex Unicode `[^\W\d_]+(?:['’-][^\W\d_]+)*`, ou seja, palavras com hífen e apóstrofo, sem dígitos.
 
@@ -379,9 +385,9 @@ McCarthy & Jarvis (2010). Percorre o texto acumulando tipos até o TTR cair ao l
 f_{\text{parcial}} = \frac{1 - \mathrm{TTR}_{\text{restante}}}{1 - 0{,}72}
 \]
 
-O MTLD de uma direção é \(N / \sum f\). O valor reportado é a **média bidirecional** (frente e reverso), o que reduz o efeito da ordem do discurso. Textos com menos de 10 tokens recebem MTLD \(= 0\).
+O MTLD de uma direção é \(N / \sum f\). O valor reportado é a **média bidirecional** (frente e reverso), o que reduz o efeito da ordem do discurso. Textos com menos de 10 tokens recebem `mtldScore = null`: a medida não está definida, e um zero seria lido na interface como pontuação pior.
 
-O MTLD é persistido e exportado, mas o score composto usa o MATTR (escala 0–1, comparável aos demais termos).
+MATTR e MTLD são persistidos e exibidos, mas **não entram** no score de limpeza. Os dois medem variedade de formas. Um erro único de legenda automática é um hapax: removê-lo diminui o número de tipos e pode fazer MATTR ou MTLD cair mesmo quando o texto ficou mais limpo. Uma queda depois do processamento, portanto, não é por si evidência de degradação.
 
 ### 7.5 Score de comprimento de sentença
 
@@ -399,21 +405,48 @@ S(\bar{s}) =
 
 A faixa 8–25 palavras é a “zona de fluência” adotada como heurística para transcrição de fala já pontuada.
 
-### 7.6 Score composto de qualidade
+### 7.6 Score de limpeza
+
+O score é calculado só sobre o texto da versão em avaliação. Sejam \(a\) a taxa de artefatos e \(f\) a taxa de resíduos de fala (hesitações ainda presentes mais repetições imediatas de token), ambas divididas pelo número de tokens e limitadas a 1:
 
 \[
-Q = 0{,}4 \cdot \mathrm{MATTR} + 0{,}4 \cdot (1 - \min(r, 1)) + 0{,}2 \cdot S(\bar{s})
+Q = 0{,}4 \cdot S(\bar{s}) + 0{,}3 \cdot (1 - a) + 0{,}3 \cdot (1 - f)
 \]
 
-depois clipado em \([0, 1]\). \(r\) é a taxa de redução de ruído.
+depois clipado em \([0, 1]\).
 
 Interpretação dos pesos:
 
-- **40% MATTR:** riqueza vocabular robusta ao comprimento.
-- **40% (1 − ruído):** textos que perderam quase tudo no filtro (só hesitações e lixo) são penalizados; um texto já limpo não é “melhor” só porque removeu pouco — o termo premia preservação de conteúdo.
-- **20% estrutura de sentença:** desempate de fluência.
+- **40% fluência de sentença:** a zona 8–25 palavras já definida acima.
+- **30% ausência de artefatos:** vírgulas órfãs e letras soltas.
+- **30% ausência de resíduo de fala:** fillers e repetição imediata que ainda estão no texto.
+
+A taxa de redução de ruído \(r\) fica fora de \(Q\). No bruto ela é sempre 0, porque a análise compara o texto consigo mesmo; usá-la como termo \((1-r)\) dava um bônus automático à aba Bruto e penalizava exatamente a limpeza que o pipeline deveria fazer. \(r\) continua no JSON e na interface como diagnóstico de quanto o processamento removeu.
+
+Há uma penalidade à parte só quando a redução passa de 0,75 — filtro agressivo demais, não um prêmio para quem não removeu nada:
+
+\[
+Q \leftarrow Q \cdot \left(1 - \frac{r - 0{,}75}{0{,}25}\right) \quad \text{se } r > 0{,}75
+\]
 
 **Limitação científica (importante para o TCC):** esses pesos **não foram calibrados** contra um critério externo (desempenho de fine-tuning ou julgamento humano). São uma heurística operacional para ranquear na UI. A validação empírica forte, prevista na metodologia do trabalho, é o experimento de treino comparando datasets (`raw` vs `processed` vs `curated` vs `rewritten`), não o \(Q\) interno. Por isso a interface também exibe MATTR, MTLD e o julgamento do LLM em separado.
+
+Registros já gravados conservam o score antigo até um reprocessamento.
+
+### 7.7 Por que o bruto pontuava acima do processado
+
+A comparação anterior misturava três efeitos:
+
+1. **O score premiava o bruto por construção.** O termo \((1-r)\) valia 1 no bruto (\(r = 0\)) e caía no processado à medida que hesitações e repetições saíam. Com MATTR idêntico e 15% dos tokens removidos, o score caía mesmo sem piora lexical.
+2. **Diversidade lexical conta ruído como riqueza.** MATTR (janela 50) e MTLD (limiar 0,72, média bidirecional) estão implementados como em Covington & McFall e McCarthy & Jarvis. Eles medem variedade de formas. Fillers raros e erros únicos de ASR aumentam o número de tipos; removê-los pode reduzir MATTR e MTLD. Isso não significa que o processamento piorou o texto para fine-tuning.
+3. **MTLD curto virava zero.** Abaixo de 10 tokens a função devolvia 0. Um texto de 11 palavras que perdia dois fillers passava a exibir MTLD 0, lido como colapso de qualidade.
+
+O protocolo de comparação, depois da correção:
+
+- a mesma função pontua cada versão sobre o próprio texto;
+- \(r\) é só o delta de tokens do processamento (ou da reescrita, quando há `reference_text`);
+- artefatos entram em \(Q\) e devem cair no texto processado;
+- MATTR e MTLD permanecem no relatório como diagnóstico de diversidade, com a leitura explícita de que uma queda pode ser remoção de hapax.
 
 ---
 
@@ -625,7 +658,7 @@ O frontend não é apenas vitrine: ele materializa a metodologia.
 **Página da transcrição (`/dashboard/transcriptions/[id]`).**
 
 - Abas de texto: **Original**, **Processado**, **Reescrito**.
-- Painel **Relatório de qualidade**: \(Q\), ruído, TTR enviesado, MATTR, MTLD, hesitações, repetições, timestamps, língua.
+- Painel **Relatório de qualidade**: \(Q\), ruído (diagnóstico, fora do score), TTR enviesado, MATTR, MTLD, taxa de artefatos, vírgulas órfãs, letras soltas, hesitações, repetições, timestamps, língua. Abas Bruto, Processado e Reescrito usam a mesma função, cada uma sobre o próprio texto.
 - Ações: Reprocessar, Deduplicar segmentos, Curadoria LLM, Reescrever (WRAP) com seletor Pré-treino / SFT.
 - Após WRAP: abas **Antes / Depois** no relatório.
 

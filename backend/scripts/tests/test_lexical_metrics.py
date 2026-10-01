@@ -3,12 +3,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from text_processor import compute_mattr, compute_metrics, compute_mtld, sentence_length_score
+from text_processor import (
+    analyze_text,
+    compute_mattr,
+    compute_metrics,
+    compute_mtld,
+    process_text,
+)
 
 
-def test_mtld_short_text_is_zero():
-    assert compute_mtld(["a", "b", "c"]) == 0.0
-    assert compute_mtld(["token"] * 9) == 0.0
+def test_mtld_short_text_is_undefined():
+    assert compute_mtld(["a", "b", "c"]) is None
+    assert compute_mtld(["token"] * 9) is None
+    assert compute_mtld(["token"] * 10) is not None
     assert compute_mtld.__defaults__[0] == 0.72
 
 
@@ -35,20 +42,113 @@ def test_mattr_window_is_less_length_sensitive_than_ttr():
     assert mattr > ttr
 
 
-def test_quality_score_does_not_use_ttr():
-    metrics = compute_metrics(
-        original_text="hello hello world",
-        processed_text="hello world extra unique tokens here please",
+def test_quality_score_does_not_reward_zero_noise():
+    processed = "hello world extra unique tokens here please stay."
+    shorter_source = "hello world"
+    longer_source = processed + " " + " ".join(["noise"] * 8)
+    clean = compute_metrics(
+        original_text=shorter_source,
+        processed_text=processed,
         hesitation_count=0,
         repetition_count=0,
         timestamp_markers_removed=0,
         detected_language="en",
         duration_ms=1,
     )
-    processed = "hello world extra unique tokens here please".split()
-    mattr = compute_mattr(processed)
-    sentences = [s for s in "hello world extra unique tokens here please".split(".") if s.strip()]
-    avg = len(processed) / max(len(sentences), 1)
-    expected = mattr * 0.4 + (1.0 - metrics["noiseReductionRate"]) * 0.4 + sentence_length_score(avg) * 0.2
-    assert abs(metrics["qualityScore"] - round(min(max(expected, 0.0), 1.0), 4)) < 1e-6
-    assert metrics["lexicalDiversity"] != metrics["qualityScore"]
+    reduced = compute_metrics(
+        original_text=longer_source,
+        processed_text=processed,
+        hesitation_count=0,
+        repetition_count=0,
+        timestamp_markers_removed=0,
+        detected_language="en",
+        duration_ms=1,
+    )
+    assert clean["noiseReductionRate"] == 0.0
+    assert reduced["noiseReductionRate"] > 0.0
+    assert reduced["noiseReductionRate"] <= 0.75
+    assert clean["qualityScore"] == reduced["qualityScore"]
+
+
+def test_over_deletion_penalty_above_threshold():
+    processed = " ".join(["word"] * 20) + "."
+    mild = compute_metrics(
+        original_text=" ".join(["word"] * 25) + ".",
+        processed_text=processed,
+        hesitation_count=0,
+        repetition_count=0,
+        timestamp_markers_removed=0,
+        detected_language="en",
+        duration_ms=1,
+    )
+    aggressive = compute_metrics(
+        original_text=" ".join(["word"] * 100) + ".",
+        processed_text=processed,
+        hesitation_count=0,
+        repetition_count=0,
+        timestamp_markers_removed=0,
+        detected_language="en",
+        duration_ms=1,
+    )
+    assert mild["noiseReductionRate"] <= 0.75
+    assert aggressive["noiseReductionRate"] > 0.75
+    assert aggressive["qualityScore"] < mild["qualityScore"]
+
+
+def test_mattr_can_fall_when_hapax_noise_is_removed():
+    noisy = [token for index in range(60) for token in ("alpha", f"noise{index}")]
+    cleaned = ["alpha"] * 60
+    assert compute_mattr(cleaned) < compute_mattr(noisy)
+
+
+ARTIFACT_SAMPLES = [
+    "Então, né, a gente vai falar sobre isso, ah, com calma.",
+    "Ah, bom dia. Eh, vamos começar, hmm, agora.",
+    "e e e então o o o resultado q ficou x assim",
+    "fala fala fala sobre métricas, né, de qualidade, eh.",
+    "Olá [music] 01:02 pessoal, uh, bem-vindos bem-vindos ao vídeo.",
+    "A transcrição automática erra palavras raras e também repete repete trechos, né.",
+]
+
+
+def test_processing_removes_orphan_commas_and_loose_letters():
+    for sample in ARTIFACT_SAMPLES:
+        processed = process_text(sample, "pt", False)["processedText"]
+        assert ",," not in processed
+        assert not processed.startswith(",")
+        assert ",." not in processed.replace(" ", "")
+        assert " q " not in f" {processed.lower()} "
+        assert " x " not in f" {processed.lower()} "
+
+
+def test_processing_keeps_function_words():
+    portuguese = process_text("a casa e o jardim", "pt", False)["processedText"]
+    assert portuguese.startswith("A casa e o jardim")
+
+    english = process_text("I am a teacher", "en", False)["processedText"]
+    assert english.startswith("I am a teacher")
+
+    comma = process_text("não, sim", "pt", False)["processedText"]
+    assert comma.startswith("Não, sim")
+
+
+# Passages stay inside the 8–25 word fluency band after cleanup. The two
+# shortest artifact samples fall below 8 words once fillers are removed, so
+# the fluency term would punish length rather than dirtiness.
+SCORE_SAMPLES = [
+    "Então, né, a gente vai falar sobre isso, ah, com calma e com bastante detalhe hoje.",
+    "Ah, bom dia a todos que acompanham esta aula de hoje. Eh, vamos começar, hmm, agora a explicação completa do pipeline inteiro.",
+    "e e e então o o o resultado q ficou x assim depois da limpeza completa do texto.",
+    "fala fala fala sobre métricas, né, de qualidade, eh, no relatório final do experimento.",
+    "Olá [music] 01:02 pessoal, uh, bem-vindos bem-vindos ao vídeo de hoje sobre o pipeline.",
+    "A transcrição automática erra palavras raras e também repete repete trechos, né, o tempo todo.",
+]
+
+
+def test_processed_quality_score_is_at_least_raw_on_fixtures():
+    for sample in SCORE_SAMPLES:
+        raw_score = analyze_text(sample, "pt")["qualityMetrics"]["qualityScore"]
+        processed = process_text(sample, "pt", False)
+        processed_score = processed["qualityMetrics"]["qualityScore"]
+        assert processed["qualityMetrics"]["avgSentenceLength"] >= 8
+        assert processed_score >= raw_score

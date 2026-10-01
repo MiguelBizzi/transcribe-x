@@ -49,6 +49,17 @@ LANGUAGE_ALIASES = {
     "de-de": "de",
 }
 
+FUNCTION_LETTERS: Dict[str, Set[str]] = {
+    "pt": {"a", "à", "e", "é", "o", "ó"},
+    "en": {"a", "i"},
+    "es": {"a", "e", "o", "y"},
+}
+_DEFAULT_FUNCTION_LETTERS: Set[str] = set().union(*FUNCTION_LETTERS.values())
+
+REPEATED_COMMA_RE = re.compile(r",(?:\s*,)+")
+COMMA_BEFORE_PUNCT_RE = re.compile(r",\s*([.;:!?])")
+OVER_DELETION_THRESHOLD = 0.75
+
 TIMESTAMP_PATTERNS = [
     re.compile(r"\[(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?\]"),
     re.compile(r"\((?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?\)"),
@@ -156,6 +167,74 @@ def collapse_repetitions(text: str) -> Tuple[str, int]:
             i += 1
 
     return " ".join(collapsed), removed
+
+
+def function_letters(language: str) -> Set[str]:
+    return FUNCTION_LETTERS.get(language, _DEFAULT_FUNCTION_LETTERS)
+
+
+def _drop_isolated_letters(text: str, language: str) -> Tuple[str, int]:
+    allowed = function_letters(language)
+    removed = 0
+
+    def replace(match: re.Match[str]) -> str:
+        nonlocal removed
+        token = match.group(0)
+        if len(token) == 1 and token.lower() not in allowed:
+            removed += 1
+            return ""
+        return token
+
+    return WORD_RE.sub(replace, text), removed
+
+
+def _orphan_comma_indexes(text: str) -> List[int]:
+    """Commas that do not sit between two words."""
+    indexes: List[int] = []
+    for index, char in enumerate(text):
+        if char != ",":
+            continue
+        before = text[:index].rstrip()
+        after = text[index + 1 :].lstrip()
+        before_ok = bool(before) and re.search(r"[^\W\d_]$", before) is not None
+        after_ok = bool(after) and re.match(r"[^\W\d_]", after) is not None
+        if not (before_ok and after_ok):
+            indexes.append(index)
+    return indexes
+
+
+def _remove_orphan_commas(text: str) -> str:
+    cleaned = REPEATED_COMMA_RE.sub(",", text)
+    cleaned = COMMA_BEFORE_PUNCT_RE.sub(r"\1", cleaned)
+    indexes = set(_orphan_comma_indexes(cleaned))
+    if not indexes:
+        return cleaned
+    return "".join(char for index, char in enumerate(cleaned) if index not in indexes)
+
+
+def count_residual_artifacts(text: str, language: str) -> Tuple[int, int]:
+    """Orphan commas and isolated non-word letters still present in text."""
+    without_letters, letters = _drop_isolated_letters(text, language)
+    without_commas = _remove_orphan_commas(without_letters)
+    commas = without_letters.count(",") - without_commas.count(",")
+    return commas, letters
+
+
+def strip_residual_artifacts(text: str, language: str) -> str:
+    without_letters, _ = _drop_isolated_letters(text, language)
+    return _remove_orphan_commas(without_letters)
+
+
+def count_immediate_repetitions(words: List[str]) -> int:
+    """Tokens that repeat the previous token, case-insensitive."""
+    count = 0
+    previous: Optional[str] = None
+    for word in words:
+        lowered = word.lower()
+        if previous is not None and lowered == previous:
+            count += 1
+        previous = lowered
+    return count
 
 
 def normalize_sentences(text: str) -> str:
@@ -272,10 +351,14 @@ def _mtld_direction(words: List[str], threshold: float) -> float:
     return len(words) / factor_count
 
 
-def compute_mtld(words: List[str], threshold: float = 0.72) -> float:
-    """Bidirectional MTLD, robust to text length (McCarthy & Jarvis, 2010)."""
+def compute_mtld(words: List[str], threshold: float = 0.72) -> Optional[float]:
+    """Bidirectional MTLD, robust to text length (McCarthy & Jarvis, 2010).
+
+    Returns None below 10 tokens. Zero would look like a worse score, but the
+    measure is simply undefined on a short sample.
+    """
     if len(words) < 10:
-        return 0.0
+        return None
     forward = _mtld_direction(words, threshold)
     backward = _mtld_direction(list(reversed(words)), threshold)
     return (forward + backward) / 2.0
@@ -333,18 +416,39 @@ def compute_metrics(
         processed_count / len(sentences) if sentences else float(processed_count)
     )
 
-    quality_score = (
-        mattr_score * 0.4
-        + (1.0 - min(noise_reduction, 1.0)) * 0.4
-        + sentence_length_score(avg_sentence_length) * 0.2
+    residual_commas, residual_letters = count_residual_artifacts(
+        processed_text, detected_language
     )
+    if processed_count == 0:
+        artifact_rate = 1.0
+        residue_rate = 1.0
+    else:
+        artifact_rate = min(
+            1.0, (residual_commas + residual_letters) / processed_count
+        )
+        fillers_left = count_fillers(processed_words, detected_language)
+        repeats_left = count_immediate_repetitions(processed_words)
+        residue_rate = min(1.0, (fillers_left + repeats_left) / processed_count)
+
+    # Scored on this version alone. Noise reduction is a pipeline diagnostic,
+    # not a bonus for the raw text (where the rate is always 0).
+    quality_score = (
+        sentence_length_score(avg_sentence_length) * 0.4
+        + (1.0 - artifact_rate) * 0.3
+        + (1.0 - residue_rate) * 0.3
+    )
+    if noise_reduction > OVER_DELETION_THRESHOLD:
+        over_deletion = (noise_reduction - OVER_DELETION_THRESHOLD) / (
+            1.0 - OVER_DELETION_THRESHOLD
+        )
+        quality_score *= max(0.0, 1.0 - over_deletion)
 
     return {
         "originalWordCount": original_count,
         "processedWordCount": processed_count,
         "noiseReductionRate": round(noise_reduction, 4),
         "lexicalDiversity": round(lexical_diversity, 4),
-        "mtldScore": round(mtld_score, 4),
+        "mtldScore": None if mtld_score is None else round(mtld_score, 4),
         "mattrScore": round(mattr_score, 4),
         "avgSentenceLength": round(avg_sentence_length, 2),
         "hesitationCount": hesitation_count,
@@ -352,6 +456,9 @@ def compute_metrics(
         "timestampMarkersRemoved": timestamp_markers_removed,
         "detectedLanguage": detected_language,
         "processingDurationMs": duration_ms,
+        "artifactRate": round(artifact_rate, 4),
+        "residualCommaCount": residual_commas,
+        "residualLetterCount": residual_letters,
         "qualityScore": round(min(max(quality_score, 0.0), 1.0), 4),
     }
 
@@ -372,7 +479,8 @@ def process_text(
     without_fillers = remove_fillers(without_markers, language)
     without_repeats, repetition_count = collapse_repetitions(without_fillers)
     spellchecked = maybe_spellcheck(without_repeats, language, is_generated)
-    processed = normalize_sentences(spellchecked)
+    without_residue = strip_residual_artifacts(spellchecked, language)
+    processed = normalize_sentences(without_residue)
 
     duration_ms = int((time.perf_counter() - started) * 1000)
     metrics = compute_metrics(

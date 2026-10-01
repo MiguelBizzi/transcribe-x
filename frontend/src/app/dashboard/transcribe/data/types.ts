@@ -3,7 +3,7 @@ export interface QualityMetrics {
   processedWordCount: number
   noiseReductionRate: number
   lexicalDiversity: number
-  mtldScore?: number
+  mtldScore?: number | null
   mattrScore?: number
   avgSentenceLength: number
   hesitationCount: number
@@ -11,6 +11,9 @@ export interface QualityMetrics {
   timestampMarkersRemoved: number
   detectedLanguage: string
   processingDurationMs: number
+  artifactRate?: number
+  residualCommaCount?: number
+  residualLetterCount?: number
   qualityScore: number
 }
 

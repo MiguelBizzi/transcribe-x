@@ -100,11 +100,11 @@ function MetricRow({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button type="button" className="w-full text-left">
+        <button type="button" className="w-full cursor-help text-left">
           {content}
         </button>
       </TooltipTrigger>
-      <TooltipContent>{hint}</TooltipContent>
+      <TooltipContent className="max-w-72 text-left">{hint}</TooltipContent>
     </Tooltip>
   )
 }
@@ -142,6 +142,63 @@ function pipelineState(transcription: TranscriptionDetail): {
   return { completed, current }
 }
 
+const METRIC_HINTS = {
+  score:
+    'Nota de limpeza desta versão do texto. Sobe quando as frases ficam num tamanho confortável de ler e quando sobram menos vírgulas soltas, letras soltas, hesitações e palavras repetidas em seguida.',
+  mattr:
+    'Mostra se o vocabulário muda ao longo do texto, em blocos de cerca de 50 palavras. Um valor alto significa que o trecho não fica girando nas mesmas palavras. Depois da limpeza esse número pode cair, porque um erro de legenda que aparecia uma vez só contava como palavra nova.',
+  mtld:
+    'Outra leitura de variedade: quanto o texto segue apresentando palavras novas em vez de repetir as mesmas. Quanto maior, mais variado. Pode cair depois da limpeza pelo mesmo motivo: sujeira que parecia vocabulário novo sai do texto.',
+  mtldShort:
+    'Este texto tem menos de 10 palavras. Com tão pouco material, essa medida de variedade não é calculada.',
+  noise:
+    'Parcela das palavras originais que a limpeza tirou. No texto bruto o valor fica em zero, porque nada foi cortado ainda. Acima de 75% a nota de limpeza começa a cair, porque um corte tão grande pode ter levado conteúdo junto com a sujeira.',
+  ttr:
+    'Porcentagem de palavras diferentes no texto inteiro. Em um vídeo longo ela cai mesmo com vocabulário rico, porque palavras como “de” e “que” se repetem o tempo todo. Por isso ela fica de fora da nota de limpeza e serve só como referência.',
+  sentence:
+    'Média de palavras por frase. Entre 8 e 25 a nota trata a leitura como confortável. Bem abaixo disso, o texto parece legenda picada. Bem acima, parece fala sem ponto final.',
+  artifacts:
+    'Parcela do texto que ainda tem sujeira visível: vírgula solta ou letra isolada. Quanto menor, melhor. Zero significa que esse tipo de resíduo não apareceu.',
+  commas:
+    'Vírgulas que não separam duas palavras, como uma vírgula no começo da frase, duas vírgulas seguidas ou uma vírgula grudada no ponto. O ideal é zero.',
+  letters:
+    'Letras sozinhas que não formam palavra, como um “q” ou um “x” deixado pela legenda. “A”, “e” e “o”, que são palavras de verdade, ficam de fora desta conta. O ideal é zero.',
+  hesitations:
+    'Palavras de hesitação, como “né”, “ah”, “eh” e “hmm”. Na versão processada, é quantas a limpeza encontrou e tirou. Na versão bruta, é quantas ainda estão no texto.',
+  repetitions:
+    'Palavras repetidas em seguida que a limpeza fundiu numa só, como “vamos vamos vamos” virando “vamos”. Na versão bruta este número fica em zero, porque essa etapa ainda não rodou.',
+  timestamps:
+    'Horários de legenda apagados, como “01:02” ou “[00:10]”. Na versão bruta este número fica em zero.',
+  language:
+    'Língua identificada neste texto. A limpeza usa essa informação para saber quais hesitações tirar e quais letras sozinhas são palavras de verdade, como “a” e “e” em português.',
+  words:
+    'Palavras que restaram nesta versão, sobre as palavras do texto de partida. Na versão bruta os dois números coincidem. Na versão processada, o primeiro é o que sobrou e o segundo é o original.',
+  coherence:
+    'De 0 a 10, o quanto o texto se entende do começo ao fim, com as ideias se seguindo. A nota vem de um modelo de linguagem que leu o trecho.',
+  richness:
+    'De 0 a 10, o quanto o texto traz informação útil, em vez de conversa vazia ou repetição sem conteúdo. Também é nota do modelo que julga o trecho.',
+  factuality:
+    'De 0 a 10, o quanto o texto parece consistente, sem afirmações soltas ou contraditórias. A estimativa olha só para o próprio texto.',
+} as const
+
+function MetricTitle({ label, hint }: { label: string; hint: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="text-muted-foreground cursor-help text-left text-xs"
+        >
+          <span className="decoration-dotted underline underline-offset-4">
+            {label}
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-72 text-left">{hint}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function QualitySnapshot({
   metrics,
   curation,
@@ -155,7 +212,7 @@ function QualitySnapshot({
         <>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">MATTR</p>
+              <MetricTitle label="MATTR" hint={METRIC_HINTS.mattr} />
               <p className="text-lg font-semibold">
                 {typeof metrics.mattrScore === 'number'
                   ? formatPercent(metrics.mattrScore)
@@ -163,7 +220,14 @@ function QualitySnapshot({
               </p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">MTLD</p>
+              <MetricTitle
+                label="MTLD"
+                hint={
+                  typeof metrics.mtldScore === 'number'
+                    ? METRIC_HINTS.mtld
+                    : METRIC_HINTS.mtldShort
+                }
+              />
               <p className="text-lg font-semibold">
                 {typeof metrics.mtldScore === 'number'
                   ? metrics.mtldScore.toFixed(1)
@@ -171,7 +235,7 @@ function QualitySnapshot({
               </p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Score interno</p>
+              <MetricTitle label="Score interno" hint={METRIC_HINTS.score} />
               <p
                 className={cn(
                   'text-lg font-semibold',
@@ -188,8 +252,8 @@ function QualitySnapshot({
               className={cn('h-2', toneClasses(metrics.qualityScore).bar)}
             />
             <p className="text-muted-foreground text-xs">
-              Score interno heurístico (não calibrado). Use MATTR, MTLD e o
-              juiz LLM como evidência.
+              Nota de limpeza desta versão. Os nomes sublinhados explicam cada
+              número.
             </p>
           </div>
           <MetricsList metrics={metrics} />
@@ -210,19 +274,19 @@ function QualitySnapshot({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Coerência</p>
+              <MetricTitle label="Coerência" hint={METRIC_HINTS.coherence} />
               <p className="text-lg font-semibold">
                 {curation.coherence.toFixed(1)}/10
               </p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Riqueza</p>
+              <MetricTitle label="Riqueza" hint={METRIC_HINTS.richness} />
               <p className="text-lg font-semibold">
                 {curation.richness.toFixed(1)}/10
               </p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Factualidade</p>
+              <MetricTitle label="Factualidade" hint={METRIC_HINTS.factuality} />
               <p className="text-lg font-semibold">
                 {curation.factuality.toFixed(1)}/10
               </p>
@@ -253,43 +317,83 @@ function MetricsList({ metrics }: { metrics: QualityMetrics }) {
       <MetricRow
         label="Ruído removido"
         value={formatPercent(metrics.noiseReductionRate)}
+        hint={METRIC_HINTS.noise}
       />
       <MetricRow
         label="TTR (enviesado)"
         value={formatPercent(metrics.lexicalDiversity)}
-        hint="Cai em textos longos mesmo com vocabulário rico. Não entra no score interno."
+        hint={METRIC_HINTS.ttr}
       />
       {typeof metrics.mattrScore === 'number' && (
         <MetricRow
           label="MATTR"
           value={formatPercent(metrics.mattrScore)}
-          hint="Type-token em janela móvel de 50 palavras, menos sensível ao comprimento."
+          hint={METRIC_HINTS.mattr}
         />
       )}
-      {typeof metrics.mtldScore === 'number' && (
-        <MetricRow
-          label="MTLD"
-          value={metrics.mtldScore.toFixed(1)}
-          hint="Diversidade lexical por fatores de TTR (limiar 0,72), média bidirecional."
-        />
-      )}
+      <MetricRow
+        label="MTLD"
+        value={
+          typeof metrics.mtldScore === 'number'
+            ? metrics.mtldScore.toFixed(1)
+            : '—'
+        }
+        hint={
+          typeof metrics.mtldScore === 'number'
+            ? METRIC_HINTS.mtld
+            : METRIC_HINTS.mtldShort
+        }
+      />
       <MetricRow
         label="Tamanho médio das frases"
         value={`${metrics.avgSentenceLength} palavras`}
+        hint={METRIC_HINTS.sentence}
       />
-      <MetricRow label="Hesitações removidas" value={metrics.hesitationCount} />
-      <MetricRow label="Repetições removidas" value={metrics.repetitionCount} />
+      {typeof metrics.artifactRate === 'number' && (
+        <MetricRow
+          label="Taxa de artefatos"
+          value={formatPercent(metrics.artifactRate)}
+          hint={METRIC_HINTS.artifacts}
+        />
+      )}
+      {typeof metrics.residualCommaCount === 'number' && (
+        <MetricRow
+          label="Vírgulas órfãs"
+          value={metrics.residualCommaCount}
+          hint={METRIC_HINTS.commas}
+        />
+      )}
+      {typeof metrics.residualLetterCount === 'number' && (
+        <MetricRow
+          label="Letras soltas"
+          value={metrics.residualLetterCount}
+          hint={METRIC_HINTS.letters}
+        />
+      )}
+      <MetricRow
+        label="Hesitações removidas"
+        value={metrics.hesitationCount}
+        hint={METRIC_HINTS.hesitations}
+      />
+      <MetricRow
+        label="Repetições removidas"
+        value={metrics.repetitionCount}
+        hint={METRIC_HINTS.repetitions}
+      />
       <MetricRow
         label="Marcadores de tempo"
         value={metrics.timestampMarkersRemoved}
+        hint={METRIC_HINTS.timestamps}
       />
       <MetricRow
         label="Idioma"
         value={metrics.detectedLanguage.toUpperCase()}
+        hint={METRIC_HINTS.language}
       />
       <MetricRow
         label="Palavras processadas"
         value={`${metrics.processedWordCount.toLocaleString('pt-BR')} / ${metrics.originalWordCount.toLocaleString('pt-BR')}`}
+        hint={METRIC_HINTS.words}
       />
     </div>
   )
