@@ -16,6 +16,7 @@ import re
 import sys
 import time
 import traceback
+import unicodedata
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 FILLERS: Dict[str, Set[str]] = {
@@ -67,11 +68,149 @@ TIMESTAMP_PATTERNS = [
     re.compile(r"\b(?:\d{1,2}:)?\d{1,2}:\d{2}\b"),
 ]
 
-CAPTION_MARKERS = re.compile(
-    r"\[(?:music|applause|laughter|inaudible|silence|cheering|screaming|"
-    r"singing|instrumental|__+)\]",
-    re.IGNORECASE,
+SQUARE_BRACKET_RE = re.compile(r"\[[^\[\]]*\]")
+MUSIC_NOTE_RE = re.compile(r"♪[^♪]*♪")
+STAGE_DIRECTION_RE = re.compile(r"\([^()]*\)|\{[^{}]*\}")
+
+# Prefixes, matched after accent folding. Short words that would collide
+# with ordinary vocabulary live in NONVERBAL_EXACT instead.
+NONVERBAL_STEMS: Tuple[str, ...] = (
+    "suspir",
+    "risad",
+    "rindo",
+    "riso",
+    "laugh",
+    "music",
+    "paus",
+    "silenc",
+    "toss",
+    "pigarr",
+    "espirr",
+    "gaguej",
+    "inaud",
+    "incompreens",
+    "aplaus",
+    "applau",
+    "cheer",
+    "scream",
+    "instrument",
+    "sigh",
+    "cough",
+    "sneez",
+    "stutter",
+    "unintell",
+    "gasp",
+    "chuckl",
+    "breath",
+    "soupir",
+    "rire",
+    "toux",
+    "eternu",
+    "begai",
+    "seufz",
+    "husten",
+    "niesen",
+    "stotter",
+    "unversta",
+    "estornud",
+    "tartamud",
+    "llant",
+    "grito",
+    "trilha",
+    "barulh",
+    "ruid",
+    "bocej",
+    "gemid",
+    "assov",
+    "enfase",
+    "choro",
+    "palma",
+    "lachen",
+    "lacht",
+    "gelacht",
 )
+NONVERBAL_EXACT: Set[str] = {
+    "tos",
+    "tose",
+    "toser",
+    "tosiendo",
+    "sing",
+    "sings",
+    "singing",
+    "sang",
+    "sung",
+    "canto",
+    "cantar",
+    "cantando",
+}
+STAGE_MODIFIERS: Set[str] = {
+    "alto",
+    "alta",
+    "altos",
+    "altas",
+    "baixo",
+    "baixa",
+    "longo",
+    "longa",
+    "curto",
+    "curta",
+    "nervosa",
+    "nervoso",
+    "nervosamente",
+    "tocando",
+    "de",
+    "do",
+    "da",
+    "dos",
+    "das",
+    "fundo",
+    "plateia",
+    "e",
+    "ou",
+    "com",
+    "um",
+    "uma",
+    "o",
+    "a",
+    "high",
+    "low",
+    "long",
+    "short",
+    "loud",
+    "loudly",
+    "soft",
+    "softly",
+    "nervous",
+    "nervously",
+    "playing",
+    "of",
+    "the",
+    "background",
+    "audience",
+    "and",
+    "largo",
+    "larga",
+    "bajo",
+    "del",
+    "y",
+    "fort",
+    "forte",
+    "longue",
+    "bas",
+    "basse",
+    "nerveusement",
+    "du",
+    "fond",
+    "et",
+    "laut",
+    "leise",
+    "lang",
+    "lange",
+    "nervos",
+    "von",
+    "und",
+    "hintergrund",
+}
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", re.UNICODE)
 WHITESPACE_RE = re.compile(r"[ \t]+")
@@ -112,8 +251,57 @@ def remove_timestamps(text: str) -> Tuple[str, int]:
     return cleaned, removed
 
 
-def remove_caption_markers(text: str) -> str:
-    return CAPTION_MARKERS.sub(" ", text)
+def _fold_token(token: str) -> str:
+    decomposed = unicodedata.normalize("NFD", token.lower())
+    return "".join(
+        char for char in decomposed if unicodedata.category(char) != "Mn"
+    )
+
+
+def _is_nonverbal_word(folded: str) -> bool:
+    if folded in NONVERBAL_EXACT:
+        return True
+    return any(folded.startswith(stem) for stem in NONVERBAL_STEMS)
+
+
+def _is_stage_direction(inner: str) -> bool:
+    """Parenthetical is a sound or action note, not spoken text."""
+    if re.search(r"\d", inner):
+        return False
+    words = WORD_RE.findall(inner)
+    if not words or len(words) > 6:
+        return False
+    folded = [_fold_token(word) for word in words]
+    if not any(_is_nonverbal_word(word) for word in folded):
+        return False
+    return all(
+        _is_nonverbal_word(word) or word in STAGE_MODIFIERS for word in folded
+    )
+
+
+def remove_nonverbal_annotations(text: str) -> str:
+    """Drop caption stage directions.
+
+    Square brackets always go: in transcripts they mark non-speech.
+    Parentheses and braces go only when the inside is a short sound or
+    action note. Musical notes (♪) go with them.
+    """
+    cleaned = text
+    previous = None
+    while previous != cleaned:
+        previous = cleaned
+        cleaned = SQUARE_BRACKET_RE.sub(" ", cleaned)
+
+    cleaned = MUSIC_NOTE_RE.sub(" ", cleaned)
+    cleaned = cleaned.replace("♪", " ")
+
+    def replace_stage_direction(match: re.Match[str]) -> str:
+        inner = match.group(0)[1:-1]
+        if _is_stage_direction(inner):
+            return " "
+        return match.group(0)
+
+    return STAGE_DIRECTION_RE.sub(replace_stage_direction, cleaned)
 
 
 def tokenize_words(text: str) -> List[str]:
@@ -474,7 +662,7 @@ def process_text(
     language = detect_language(original, fallback_language)
 
     without_timestamps, timestamp_count = remove_timestamps(original)
-    without_markers = remove_caption_markers(without_timestamps)
+    without_markers = remove_nonverbal_annotations(without_timestamps)
     hesitation_count = count_fillers(tokenize_words(without_markers), language)
     without_fillers = remove_fillers(without_markers, language)
     without_repeats, repetition_count = collapse_repetitions(without_fillers)

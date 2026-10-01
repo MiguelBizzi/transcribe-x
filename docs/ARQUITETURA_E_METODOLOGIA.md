@@ -307,7 +307,12 @@ O processador recebe `{ text, language_code, is_generated }` e devolve `{ proces
 ### 6.1 Etapas, em ordem
 
 1. **Remoção de timestamps.** Padrões `[mm:ss]`, `(hh:mm:ss)`, `mm:ss.mmm` e similares. Conta quantos foram removidos.
-2. **Marcadores de legenda.** `[music]`, `[applause]`, `[laughter]`, `[inaudible]`, `[silence]`, `[cheering]`, `[screaming]`, `[singing]`, `[instrumental]`.
+2. **Anotações não verbais.** O que descreve o áudio, e não a fala.
+   - Colchetes saem sempre: `[suspirando][risadas]`, `[SUSPIRANDO]`, `[music]`, `[pausa longa]`. Em legenda, colchetes são direção de cena. Um nome de falante entre colchetes também sai.
+   - Parênteses e chaves saem só quando o miolo é uma direção curta (até 6 palavras, sem dígitos), com ao menos um radical de som ou ação e com as demais palavras sendo modificador (`alto`, `tocando`, `de`, `fundo`, e equivalentes em inglês, espanhol, francês e alemão). Saem `(risadas)`, `(música tocando)` e `{silêncio}`. Ficam `(como eu disse)` e `(2020)`.
+   - O radical cobre conjugação e número (`suspir` pega suspiro, suspirando, suspirou), nos cinco idiomas do pipeline.
+   - Notas `♪...♪` saem na mesma passagem.
+   - A frase se recompor depois: espaços duplos caem na normalização, a repetição partida pelo marcador (`deixa eu [risos] deixa eu`) cai no colapso de n-gramas, e a vírgula que sobrar cai na limpeza residual.
 3. **Contagem e remoção de hesitações (*fillers*).** Léxicos por idioma:
 
    - inglês: *uh, um, uhm, ah, er, hmm, uh-huh…*

@@ -145,6 +145,56 @@ SCORE_SAMPLES = [
 ]
 
 
+def test_processing_removes_nonverbal_annotations():
+    sample = (
+        "Então, antes de eu ser cancelado, deixa eu [suspirando][risadas] "
+        "deixa eu vir aqui e tentar explicar de uma forma diferente."
+    )
+    processed = process_text(sample, "pt", False)["processedText"]
+    assert "[" not in processed and "]" not in processed
+    assert processed.lower().count("deixa eu") == 1
+
+    markers = (
+        "[SUSPIRANDO]",
+        "(risadas)",
+        "{silêncio}",
+        "(música tocando)",
+        "[music]",
+        "♪música♪",
+    )
+    for marker in markers:
+        text = process_text(
+            f"Olá pessoal {marker} vamos continuar a explicação agora.",
+            "pt",
+            False,
+        )["processedText"]
+        lowered = text.lower()
+        assert "[" not in text and "]" not in text
+        assert "♪" not in text
+        assert "suspirando" not in lowered
+        assert "risadas" not in lowered
+        assert "silêncio" not in lowered and "silencio" not in lowered
+        assert "música" not in lowered and "musica" not in lowered
+        assert "music" not in lowered
+
+    spoken = process_text(
+        "O resultado (como eu disse) em (2020) ficou claro para todo mundo.",
+        "pt",
+        False,
+    )["processedText"]
+    assert "(como eu disse)" in spoken
+    assert "(2020)" in spoken
+
+    comma = process_text(
+        "eu [risos], então seguimos com a explicação completa.",
+        "pt",
+        False,
+    )["processedText"]
+    assert "  " not in comma
+    assert ",," not in comma
+    assert comma.startswith("Eu, então")
+
+
 def test_processed_quality_score_is_at_least_raw_on_fixtures():
     for sample in SCORE_SAMPLES:
         raw_score = analyze_text(sample, "pt")["qualityMetrics"]["qualityScore"]
