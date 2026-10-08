@@ -64,7 +64,6 @@ export const getUrlTypeInfo = (urlType: UrlType): UrlTypeInfo | null => {
 }
 
 export const DATASET_FORMATS: { value: DatasetFormat; label: string }[] = [
-  { value: 'jsonl', label: 'JSONL' },
   { value: 'json', label: 'JSON' },
   { value: 'csv', label: 'CSV' },
   { value: 'txt', label: 'TXT' },
@@ -75,14 +74,12 @@ export const DATASET_FORMATS: { value: DatasetFormat; label: string }[] = [
 export const getExportFormats = () => DATASET_FORMATS
 
 export function furthestDatasetStage(input: {
-  rewrittenContent?: string | null
   processedContent?: string | null
   isProcessed?: boolean
   llmCurationScore?: number | null
   recommendation?: string | null
 }): DatasetStage {
   const discarded = input.recommendation === 'discard'
-  if (input.rewrittenContent?.trim() && !discarded) return 'rewritten'
   if (input.llmCurationScore != null && !discarded) return 'curated'
   if (input.isProcessed || input.processedContent?.trim()) return 'processed'
   return 'raw'
@@ -90,7 +87,6 @@ export function furthestDatasetStage(input: {
 
 export function furthestPlaylistStage(
   videos: {
-    rewrittenContent?: string | null
     processedContent?: string | null
     isProcessed?: boolean
     llmCurationScore?: number | null
@@ -102,12 +98,10 @@ export function furthestPlaylistStage(
     raw: 0,
     processed: 1,
     curated: 2,
-    rewritten: 3,
   }
 
   for (const video of videos) {
     const candidate = furthestDatasetStage({
-      rewrittenContent: video.rewrittenContent,
       processedContent: video.processedContent,
       isProcessed: video.isProcessed,
       llmCurationScore: video.llmCurationScore,

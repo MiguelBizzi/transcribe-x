@@ -46,7 +46,7 @@ export function TranscriptionJobsSkeleton() {
                   </div>
 
                   <div className="flex w-full items-center gap-2 pt-2">
-                    {['JSONL', 'JSON', 'CSV', 'TXT', 'MD', 'XML'].map(
+                    {['JSON', 'CSV', 'TXT', 'MD', 'XML'].map(
                       (format) => (
                         <div
                           key={format}

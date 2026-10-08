@@ -5,7 +5,7 @@ LLM-assisted transcript curation.
 Reads a JSON payload from stdin and scores coherence, richness, and
 apparent factuality for fine-tuning dataset curation.
 
-Long texts are split into sentence chunks (like WRAP) and judged
+Long texts are split into sentence chunks and judged
 per chunk, then aggregated.
 """
 

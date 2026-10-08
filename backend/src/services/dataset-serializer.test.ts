@@ -7,91 +7,93 @@ import {
     type DatasetRecord,
 } from './dataset-serializer'
 
-const prose: DatasetRecord = {
+const curated: DatasetRecord = {
     id: 'vid-1',
     title: 'Aula 1',
     youtubeId: 'abc123',
     playlistId: 'pl-1',
     language: 'pt',
-    dataset: 'rewritten',
-    rewriteMode: 'pretraining',
+    dataset: 'curated',
     deduplicationStatus: 'kept',
+    dedupGroupId: 'group-1',
     qualityScore: 0.81,
     mtldScore: 42.5,
     mattrScore: 0.73,
     llmCurationScore: 0.7,
     recommendation: 'pretraining',
-    instruction: null,
-    output: null,
-    text: 'Prosa reescrita da aula.',
+    coherence: 7,
+    richness: 6,
+    factuality: 8,
+    curationOverall: 7,
+    curationRationale: 'Texto contínuo e coerente.',
+    curationProvider: 'openai',
+    curationModel: 'gpt-4o-mini',
+    curationChunkCount: 1,
+    text: 'Prosa processada da aula.',
 }
 
-const sft: DatasetRecord = {
+const pending: DatasetRecord = {
     id: 'vid-2',
     title: 'Aula 2, com vírgula',
     youtubeId: 'def456',
     playlistId: 'pl-1',
     language: 'pt',
-    dataset: 'rewritten',
-    rewriteMode: 'sft',
-    deduplicationStatus: 'kept',
+    dataset: 'processed',
+    deduplicationStatus: 'pending',
+    dedupGroupId: null,
     qualityScore: 0.9,
     mtldScore: 50,
     mattrScore: 0.8,
-    llmCurationScore: 0.88,
-    recommendation: 'sft_example',
-    instruction: 'Explique o tema.',
-    output: 'A resposta ancorada.',
-    text: 'A resposta ancorada.',
+    llmCurationScore: null,
+    recommendation: null,
+    coherence: null,
+    richness: null,
+    factuality: null,
+    curationOverall: null,
+    curationRationale: null,
+    curationProvider: null,
+    curationModel: null,
+    curationChunkCount: null,
+    text: 'Texto ainda sem curadoria.',
 }
 
-const records = [prose, sft]
-const formats: DatasetFormat[] = ['json', 'jsonl', 'csv', 'txt', 'md', 'xml']
+const records = [curated, pending]
+const formats: DatasetFormat[] = ['json', 'csv', 'txt', 'md', 'xml']
 
 describe('serializeDataset', () => {
     it('emits the same fields in every format', () => {
         for (const format of formats) {
-            const { content } = serializeDataset(records, format, 'rewritten')
+            const { content } = serializeDataset(records, format, 'curated')
             for (const field of DATASET_FIELDS) {
                 assert.match(content, new RegExp(field), `${format} missing ${field}`)
             }
             assert.match(content, /vid-1/)
             assert.match(content, /vid-2/)
-            assert.match(content, /Prosa reescrita da aula\./)
-            assert.match(content, /Explique o tema\./)
-            assert.match(content, /A resposta ancorada\./)
+            assert.match(content, /Prosa processada da aula\./)
+            assert.match(content, /Texto contínuo e coerente\./)
+            assert.match(content, /Texto ainda sem curadoria\./)
+            assert.doesNotMatch(content, /jsonl/)
+            assert.doesNotMatch(content, /rewriteMode/)
+            assert.doesNotMatch(content, /instruction/)
         }
-    })
-
-    it('keeps a full JSONL object for SFT pairs', () => {
-        const { content } = serializeDataset(records, 'jsonl', 'rewritten')
-        const lines = content.split('\n')
-        assert.equal(lines.length, 2)
-        for (const line of lines) {
-            const parsed = JSON.parse(line) as Record<string, unknown>
-            assert.deepEqual(Object.keys(parsed), [...DATASET_FIELDS])
-        }
-        const pair = JSON.parse(lines[1]) as DatasetRecord
-        assert.equal(pair.instruction, 'Explique o tema.')
-        assert.equal(pair.output, 'A resposta ancorada.')
-        assert.equal(pair.qualityScore, 0.9)
-        assert.equal(pair.mtldScore, 50)
-        assert.equal(pair.playlistId, 'pl-1')
     })
 
     it('serializes JSON as an array of complete records', () => {
         const parsed = JSON.parse(
-            serializeDataset(records, 'json', 'rewritten').content,
+            serializeDataset(records, 'json', 'curated').content,
         ) as DatasetRecord[]
         assert.equal(parsed.length, 2)
         assert.deepEqual(Object.keys(parsed[0]), [...DATASET_FIELDS])
-        assert.equal(parsed[0].instruction, null)
-        assert.equal(parsed[0].output, null)
-        assert.equal(parsed[1].text, parsed[1].output)
+        assert.equal(parsed[0].coherence, 7)
+        assert.equal(parsed[0].curationRationale, 'Texto contínuo e coerente.')
+        assert.equal(parsed[0].dedupGroupId, 'group-1')
+        assert.equal(parsed[0].text, 'Prosa processada da aula.')
+        assert.equal(parsed[1].recommendation, null)
+        assert.equal(parsed[1].curationChunkCount, null)
     })
 
     it('uses one CSV column per field', () => {
-        const { content } = serializeDataset(records, 'csv', 'rewritten')
+        const { content } = serializeDataset(records, 'csv', 'processed')
         const [header, first, second] = content.split('\n')
         assert.equal(header, DATASET_FIELDS.join(','))
         assert.equal(first.split(',').length, DATASET_FIELDS.length)
@@ -99,23 +101,26 @@ describe('serializeDataset', () => {
     })
 
     it('delimits TXT, Markdown, and XML records', () => {
-        const txt = serializeDataset(records, 'txt', 'rewritten').content
+        const txt = serializeDataset(records, 'txt', 'curated').content
         assert.equal(txt.match(/<<<RECORD>>>/g)?.length, 2)
         assert.equal(txt.match(/<<<END>>>/g)?.length, 2)
-        assert.match(txt, /^# dataset: rewritten\n# records: 2/)
-        assert.match(txt, /instruction<<<\nExplique o tema\.\n>>>/)
+        assert.match(txt, /^# dataset: curated\n# records: 2/)
+        assert.match(txt, /curationRationale: Texto contínuo e coerente\./)
+        assert.match(txt, /text<<<\nProsa processada da aula\.\n>>>/)
+        assert.doesNotMatch(txt, /instruction<<</)
 
-        const md = serializeDataset(records, 'md', 'rewritten').content
+        const md = serializeDataset(records, 'md', 'curated').content
         assert.equal(md.match(/^## text$/gm)?.length, 2)
-        assert.equal(md.match(/^## instruction$/gm)?.length, 2)
-        assert.equal(md.match(/^## output$/gm)?.length, 2)
-        assert.match(md, /^- stage: rewritten\n- records: 2/m)
+        assert.equal(md.match(/^## instruction$/gm), null)
+        assert.match(md, /^- stage: curated\n- records: 2/m)
+        assert.match(md, /coherence: 7/)
+        assert.match(md, /dedupGroupId: null/)
 
-        const xml = serializeDataset(records, 'xml', 'rewritten').content
+        const xml = serializeDataset(records, 'xml', 'curated').content
         assert.equal(xml.match(/<record>/g)?.length, 2)
         assert.match(
             xml,
-            /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<dataset recordCount="2" stage="rewritten">/,
+            /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<dataset recordCount="2" stage="curated">/,
         )
         for (const field of DATASET_FIELDS) {
             assert.equal(xml.match(new RegExp(`<${field}>`, 'g'))?.length, 2)
@@ -124,17 +129,15 @@ describe('serializeDataset', () => {
 
     it('escapes XML text and TXT delimiter lines', () => {
         const tricky: DatasetRecord = {
-            ...prose,
+            ...curated,
             title: 'A < B & C',
             text: 'antes\n>>>\ndepois',
-            instruction: null,
-            output: null,
         }
-        const xml = serializeDataset([tricky], 'xml', 'rewritten').content
+        const xml = serializeDataset([tricky], 'xml', 'curated').content
         assert.match(xml, /<title>A &lt; B &amp; C<\/title>/)
         assert.doesNotMatch(xml, /<title>A < B/)
 
-        const txt = serializeDataset([tricky], 'txt', 'rewritten').content
+        const txt = serializeDataset([tricky], 'txt', 'curated').content
         assert.match(txt, /text<<<\nantes\n\\>>>\ndepois\n>>>/)
     })
 
@@ -142,6 +145,8 @@ describe('serializeDataset', () => {
         assert.match(serializeDataset([], 'md', 'raw').mimeType, /markdown/)
         assert.match(serializeDataset([], 'xml', 'raw').mimeType, /xml/)
         assert.match(serializeDataset([], 'txt', 'raw').mimeType, /text\/plain/)
+        assert.match(serializeDataset([], 'json', 'raw').mimeType, /json/)
+        assert.match(serializeDataset([], 'csv', 'raw').mimeType, /csv/)
         const xml = serializeDataset([], 'xml', 'raw').content
         assert.match(xml, /recordCount="0"/)
         assert.equal(xml.match(/<record>/g), null)

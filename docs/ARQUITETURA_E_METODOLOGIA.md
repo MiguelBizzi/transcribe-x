@@ -1,6 +1,6 @@
 # TranscribeX: arquitetura de software e metodologia de curadoria de dados para fine-tuning
 
-Este documento descreve a arquitetura do TranscribeX e a metodologia científica do pipeline de aquisição, limpeza, avaliação, deduplicação, curadoria semântica e reescrita de transcrições. O texto foi escrito para subsidiar a seção de arquitetura e metodologia do Trabalho de Conclusão de Curso (TCC). Ele reflete o sistema implementado no código-fonte, e não apenas a intenção de produto.
+Este documento descreve a arquitetura do TranscribeX e a metodologia científica do pipeline de aquisição, limpeza, avaliação, deduplicação e curadoria semântica de transcrições. O texto foi escrito para subsidiar a seção de arquitetura e metodologia do Trabalho de Conclusão de Curso (TCC). Ele reflete o sistema implementado no código-fonte, e não apenas a intenção de produto.
 
 O TranscribeX é uma plataforma web para capturar transcrições de vídeos e playlists do YouTube, transformá-las em texto de qualidade controlada e exportá-las como datasets prontos para treino contínuo (*continued pretraining*) ou fine-tuning supervisionado (SFT) de modelos de linguagem.
 
@@ -15,7 +15,7 @@ A literatura recente em curadoria de dados para LLMs sustenta quatro pontos que 
 1. **A qualidade dos dados pesa mais do que o volume.** O trabalho LIMA (Zhou et al., 2023) mostrou que cerca de 1.000 exemplos cuidadosamente curados podem ser competitivos em alinhamento supervisionado.
 2. **Métricas lexicais ingênuas são enviesadas pelo comprimento.** O Type-Token Ratio (TTR) correlaciona-se fortemente com o tamanho do texto e penaliza vídeos longos de forma artificial (McCarthy & Jarvis, 2010).
 3. **Duplicatas enviesam o treino.** Datasets não deduplicados distorcem a distribuição de sequências raras e comuns e aumentam a memorização (Lee et al., 2022).
-4. **A forma do texto também importa.** WRAP (Maini et al., 2024) mostrou que reescrever textos da web em prosa estruturada ou em pares pergunta–resposta acelera o pré-treino e reduz perplexidade com o mesmo orçamento computacional.
+4. **A fidelidade ao que foi dito pesa mais do que uma reescrita gerativa.** Reescrever o texto com um modelo pode introduzir fatos que não estavam na fala. O TranscribeX julga o conteúdo e registra esse julgamento, sem gerar uma nova versão do texto.
 
 A evolução do TranscribeX parte exatamente desse diagnóstico: a limpeza por expressões regulares e um `qualityScore` baseado em TTR são úteis como primeiro filtro de superfície, mas insuficientes como metodologia científica de curadoria. O pipeline atual, portanto, combina quatro camadas:
 
@@ -24,7 +24,7 @@ A evolução do TranscribeX parte exatamente desse diagnóstico: a limpeza por e
 | Limpeza de superfície | Remover ruído de fala e de legenda | Heurísticas linguísticas |
 | Métricas lexicais robustas | Medir diversidade independente do comprimento | MTLD / MATTR (McCarthy & Jarvis, 2010; Covington & McFall, 2010) |
 | Deduplicação exata e aproximada | Remover cópias e quase-cópias | MinHash + Jaccard (Lee et al., 2022) |
-| Curadoria e reescrita por LLM | Julgar conteúdo e reestruturar a forma | Julgamento semântico + WRAP (Maini et al., 2024) |
+| Curadoria por LLM | Julgar conteúdo e registrar a decisão | Julgamento semântico (Zhou et al., 2023) |
 
 ---
 
@@ -34,7 +34,7 @@ O TranscribeX é um sistema cliente–servidor em três camadas:
 
 1. **Frontend** (Next.js): interface autenticada para solicitar transcrições, inspecionar texto, disparar curadoria e exportar datasets.
 2. **Backend** (Fastify + Prisma): API REST, persistência, autenticação e orquestração do pipeline.
-3. **Workers Python** (processos filhos): extração de legendas do YouTube, NLP de qualidade, deduplicação, curadoria LLM e reescrita WRAP.
+3. **Workers Python** (processos filhos): extração de legendas do YouTube, NLP de qualidade, deduplicação e curadoria LLM.
 
 Essa divisão é deliberada. O Node.js/TypeScript é o melhor lugar para HTTP, autenticação, validação de contratos (Zod) e chamadas à YouTube Data API v3. O Python é o melhor lugar para processamento linguístico (`langdetect`, `pyspellchecker`, `datasketch`) e para clientes de LLM (OpenAI e Ollama). A ponte entre os dois é um *runner* que spawna um processo Python, envia JSON via `stdin` e lê JSON via `stdout`.
 
@@ -99,7 +99,7 @@ transcribe-x/
 │       ├── auth/                             # login / Google callback
 │       └── dashboard/
 │           ├── transcribe/                   # solicitar vídeo ou playlist
-│           ├── transcriptions/[id]/          # detalhe + métricas + WRAP
+│           ├── transcriptions/[id]/          # detalhe + métricas + curadoria
 │           └── playlists/[id]/               # curadoria em lote + export
 └── backend/
     ├── prisma/schema.prisma
@@ -107,8 +107,7 @@ transcribe-x/
     │   ├── youtube_transcript.py
     │   ├── text_processor.py
     │   ├── deduplicator.py
-    │   ├── llm_curator.py
-    │   └── llm_rewriter.py
+    │   └── llm_curator.py
     └── src/
         ├── http/server.ts                    # bootstrap Fastify
         ├── http/routes/                      # auth, transcriptions, exports
@@ -140,7 +139,6 @@ Timeouts (proteção contra travamento):
 | `text_processor.py` | 15 s |
 | `deduplicator.py` | 60 s |
 | `llm_curator.py` | 120 s |
-| `llm_rewriter.py` | 180 s |
 
 O *runner* resolve o interpretador na seguinte ordem: `venv/bin/python3` (se existir) → `python3` do sistema.
 
@@ -157,7 +155,7 @@ Todas as rotas, exceto login, registro e o fluxo Google, passam por um *hook* Fa
 
 O dashboard Next.js também valida a sessão no servidor (`getCurrentUser`) e redireciona para `/auth` se o cookie estiver ausente. As mutações da UI usam **Server Actions** (`next-safe-action`) que chamam a API com o token do cookie, em vez de o browser falar direto com o Fastify.
 
-Isolamento de dados: toda consulta a transcrição, playlist, curadoria, reescrita e export filtra por `userId` do JWT. Um usuário não lê nem altera o corpus de outro.
+Isolamento de dados: toda consulta a transcrição, playlist, curadoria e export filtra por `userId` do JWT. Um usuário não lê nem altera o corpus de outro.
 
 ### 3.5 Modelo de dados
 
@@ -179,12 +177,9 @@ Entidades principais (Prisma / PostgreSQL):
 | `llmCurationScore`, `llmCurationData` | Julgamento semântico do texto processado |
 | `deduplicationStatus` | `pending` \| `kept` \| `duplicate` |
 | `dedupGroupId` | Grupo Union-Find / canônico |
-| `rewrittenContent`, `rewriteMode`, `rewriteData` | Saída WRAP |
-| `rewrittenQualityMetrics` | Métricas **do texto reescrito** (comparação antes/depois) |
-| `rewrittenLlmCurationScore`, `rewrittenLlmCurationData` | Curadoria **do texto reescrito** |
 | `playlistId`, `videoIndex`, `isPlaylistVideo` | Vínculo com playlist |
 
-**Export.** Tabela de histórico (`exports`) com o enum legado `TXT | PDF | DOCX | JSON`. O download atual não grava nessa tabela: ele é gerado sob demanda como dataset (seção 11), nos formatos JSON, JSONL, CSV, TXT, MD e XML.
+**Export.** Tabela de histórico (`exports`) com o enum legado `TXT | PDF | DOCX | JSON`. O download atual não grava nessa tabela: ele é gerado sob demanda como dataset (seção 11), nos formatos JSON, CSV, TXT, MD e XML.
 
 **RecentActivity.** Auditoria simples de ações do usuário.
 
@@ -259,7 +254,7 @@ Escopo de canal: não há *crawler* de canal. O tipo `CHANNEL` existe no enum, e
 
 ## 5. Pipeline de curadoria (visão ponta a ponta)
 
-O corpus de um vídeo atravessa estágios. Cada estágio produz um artefato persistido, o que permite comparar **bruto × processado × curado × reescrito** no export.
+O corpus de um vídeo atravessa estágios. Cada estágio produz um artefato persistido, o que permite comparar **bruto × processado × curado** no export. O texto exportado é sempre a legenda ou o texto processado; a curadoria não gera outra versão.
 
 ```mermaid
 flowchart TD
@@ -268,21 +263,14 @@ flowchart TD
     dedupV[dedup intra-vídeo: sentenças]
     dedupP[dedup playlist/canal: documentos]
     curate[llmCurationData]
-    discard{recommendation?}
-    wrap[rewrittenContent]
-    metrics2[métricas e curadoria do reescrito]
-    export[Export JSON, JSONL, CSV, TXT, MD, XML]
+    export[Export JSON, CSV, TXT, MD, XML]
 
     raw --> clean
     clean --> dedupV
     clean --> dedupP
     dedupV --> curate
     dedupP --> curate
-    curate --> discard
-    discard -->|discard| export
-    discard -->|sft_example ou pretraining| wrap
-    wrap --> metrics2
-    metrics2 --> export
+    curate --> export
     clean --> export
     raw --> export
 ```
@@ -292,11 +280,10 @@ Ordem operacional na interface:
 1. A transcrição chega **já processada** (limpeza automática na criação).
 2. O usuário pode **reprocessar** (`POST /transcriptions/:id/process`).
 3. **Deduplicar** o vídeo (sentenças) e/ou a playlist/canal (documentos).
-4. **Curadoria LLM** (`POST /transcriptions/:id/curate`) — pontua, não reescreve.
-5. Se a recomendação não for `discard`, **reescrever WRAP** (`POST /transcriptions/:id/rewrite`).
-6. Exportar o recorte desejado.
+4. **Curadoria LLM** (`POST /transcriptions/:id/curate`) — pontua e recomenda, sem alterar o texto.
+5. Exportar o recorte desejado, com os metadados de curadoria no mesmo registro.
 
-A curadoria LLM **não gera texto novo**. A reescrita WRAP é a primeira etapa que altera a forma do conteúdo de maneira gerativa, e só é permitida depois da curadoria.
+A curadoria LLM **não gera texto novo**. Nenhuma etapa do pipeline reescreve a fala com um modelo.
 
 ---
 
@@ -330,13 +317,13 @@ O processador recebe `{ text, language_code, is_generated }` e devolve `{ proces
 
 O resultado é `processedContent`. O bruto permanece em `content`, o que torna o pipeline **reversível** para comparação experimental.
 
-Há um modo `analyze_only`: calcula as mesmas métricas **sem alterar o texto**. Bruto, processado e reescrito passam pela mesma função, cada um sobre o próprio texto. O `reference_text` (usado na reescrita WRAP) só alimenta a taxa de redução de ruído. Essa taxa fica fora do score, salvo a penalidade quando a redução passa de 0,75.
+Há um modo `analyze_only`: calcula as mesmas métricas **sem alterar o texto**. Bruto e processado passam pela mesma função, cada um sobre o próprio texto. O `reference_text` só alimenta a taxa de redução de ruído. Essa taxa fica fora do score, salvo a penalidade quando a redução passa de 0,75.
 
 ---
 
 ## 7. Métricas de qualidade textual
 
-Cada versão — bruto, processado e reescrito — recebe a mesma função sobre o próprio texto. A taxa de ruído é o número que compara duas versões. Ela fica fora do score, salvo a penalidade quando a redução passa de 0,75.
+Cada versão — bruto e processado — recebe a mesma função sobre o próprio texto. A taxa de ruído é o número que compara duas versões. Ela fica fora do score, salvo a penalidade quando a redução passa de 0,75.
 
 ### 7.1 Inventário
 
@@ -434,7 +421,7 @@ Há uma penalidade à parte só quando a redução passa de 0,75 — filtro agre
 Q \leftarrow Q \cdot \left(1 - \frac{r - 0{,}75}{0{,}25}\right) \quad \text{se } r > 0{,}75
 \]
 
-**Limitação científica (importante para o TCC):** esses pesos **não foram calibrados** contra um critério externo (desempenho de fine-tuning ou julgamento humano). São uma heurística operacional para ranquear na UI. A validação empírica forte, prevista na metodologia do trabalho, é o experimento de treino comparando datasets (`raw` vs `processed` vs `curated` vs `rewritten`), não o \(Q\) interno. Por isso a interface também exibe MATTR, MTLD e o julgamento do LLM em separado.
+**Limitação científica (importante para o TCC):** esses pesos **não foram calibrados** contra um critério externo (desempenho de fine-tuning ou julgamento humano). São uma heurística operacional para ranquear na UI. A validação empírica forte, prevista na metodologia do trabalho, é o experimento de treino comparando datasets (`raw` vs `processed` vs `curated`), não o \(Q\) interno. Por isso a interface também exibe MATTR, MTLD e o julgamento do LLM em separado.
 
 Registros já gravados conservam o score antigo até um reprocessamento.
 
@@ -449,7 +436,7 @@ A comparação anterior misturava três efeitos:
 O protocolo de comparação, depois da correção:
 
 - a mesma função pontua cada versão sobre o próprio texto;
-- \(r\) é só o delta de tokens do processamento (ou da reescrita, quando há `reference_text`);
+- \(r\) é só o delta de tokens do processamento, quando há `reference_text`;
 - artefatos entram em \(Q\) e devem cair no texto processado;
 - MATTR e MTLD permanecem no relatório como diagnóstico de diversidade, com a leitura explícita de que uma queda pode ser remoção de hapax.
 
@@ -565,53 +552,11 @@ O campo persistido `llmCurationScore` é \(\mathrm{overall}/10\), para ficar na 
 
 ---
 
-## 10. Reescrita WRAP (pós-curadoria)
+## 10. Fidelidade ao texto original
 
-Implementação: `llm_rewriter.py` + `LlmRewriteService`. Referência: Maini et al. (2024), *WRAP: Rephrasing the Web*.
+O pipeline não reescreve a transcrição com um modelo. O campo `text` de qualquer export é `content` (estágio `raw`) ou `processedContent` (estágios `processed` e `curated`, com fallback para `content`).
 
-### 10.1 Hipótese adaptada a transcrições de fala
-
-WRAP original reescreve páginas da web em estilo enciclopédico ou pergunta–resposta e observa ganho de eficiência de pré-treino. No TranscribeX, a fonte é **fala transcrita**, já limpa. A hipótese de trabalho é a mesma: a **forma** (gramática, coesão, parágrafos, pares instrucionais) melhora a utilidade do dado para modelos de linguagem, desde que o conteúdo factual permaneça ancorado no original.
-
-Por isso a reescrita é **somente de forma**:
-
-- corrige gramática, pontuação, fluência, disfluências residuais e estrutura de parágrafos;
-- **proíbe** inventar fatos, nomes, números, exemplos ou traduzir;
-- **proíbe** omitir conteúdo substancial;
-- mantém o idioma da fonte;
-- não adiciona título, preâmbulo nem comentário sobre a própria reescrita.
-
-### 10.2 Pré-condições
-
-A API recusa a reescrita se:
-
-- não houver `llmCurationData` (“rode a curadoria antes”);
-- a recomendação for `discard`;
-- não houver texto em `processedContent` / `content`.
-
-Isso impede gastar tokens reescrevendo lixo que o juiz já descartou.
-
-### 10.3 Dois modos
-
-O corpo da requisição é `{ "mode": "pretraining" | "sft" }`. A UI pré-seleciona `sft` se a curadoria recomendou `sft_example`, senão `pretraining`.
-
-**Modo `pretraining`.** Prosa enciclopédica/narrativa contínua. Saída JSON `{ "rewritten": "..." }`. Chunks são concatenados com linha em branco.
-
-**Modo `sft`.** Pares instrução–resposta **ancorados só no transcript**. Saída `{ "pairs": [{ "instruction", "output" }] }`. O texto persistido em `rewrittenContent` é uma renderização Markdown dos pares; os pares estruturados ficam em `rewriteData.pairs`. No export, cada par vira um registro completo (`instruction`, `output` e `text` igual a `output`), com os mesmos metadados dos outros formatos.
-
-### 10.4 Chunking
-
-Textos longos são fatiados em blocos de até **3.000 caracteres**, quebrando em fronteira de sentença (`(?<=[.!?])\s+`). Sentenças maiores que o limite são cortadas por caractere. Cada chunk recebe cabeçalho `Chunk: i/N`, além de título e língua. O mesmo provedor/modelo da curadoria é reutilizado, com o mesmo *fallback* OpenAI/Ollama.
-
-### 10.5 Avaliação depois da reescrita
-
-Após persistir o texto reescrito, o serviço:
-
-1. chama `textQualityService.analyzeText(rewritten, language, processedAsReference)` — MATTR, MTLD, `qualityScore` etc. **sem** re-limpar o texto;
-2. chama `llmCurationService.curateText` de novo, agora sobre o reescrito;
-3. grava `rewrittenQualityMetrics` e `rewrittenLlmCurationData`.
-
-A UI do relatório de qualidade ganha abas **Antes** e **Depois**, permitindo comparar \(Q\), MATTR, MTLD e as três notas do juiz. Esse par de medições é o suporte empírico *interno* da etapa WRAP; o suporte *externo* (perplexidade em modelo treinado) permanece como experimento de validação do TCC, fora do software.
+A curadoria LLM permanece como julgamento: notas, recomendação, justificativa, provedor e modelo saem junto com o texto, para o consumidor filtrar exemplos sem que o conteúdo da fala seja substituído por uma geração. A recomendação `sft_example` ou `pretraining` indica o uso sugerido; ela não produz pares instrução–resposta nem uma prosa alternativa.
 
 ---
 
@@ -619,7 +564,7 @@ A UI do relatório de qualidade ganha abas **Antes** e **Depois**, permitindo co
 
 Endpoint: `GET /exports/fine-tuning`.
 
-Todo arquivo baixado é um dataset do estágio escolhido. Os seis formatos carregam os mesmos campos; o que muda é só a serialização. PDF e DOCX não fazem parte da exportação.
+Todo arquivo baixado é um dataset do estágio escolhido. Os cinco formatos carregam os mesmos campos; o que muda é só a serialização. PDF, DOCX e JSONL não fazem parte da exportação.
 
 ### 11.1 Parâmetros
 
@@ -628,26 +573,25 @@ Todo arquivo baixado é um dataset do estágio escolhido. Os seis formatos carre
 | `scope` | `user` \| `playlist` \| `transcription` | Corpus do usuário, de uma playlist ou de um vídeo |
 | `playlistId` | UUID | Obrigatório se `scope=playlist` |
 | `transcriptionId` | UUID | Obrigatório se `scope=transcription` |
-| `dataset` | `raw` \| `processed` \| `curated` \| `rewritten` | Qual versão do texto |
-| `format` | `jsonl` \| `json` \| `csv` \| `txt` \| `md` \| `xml` | Serialização |
+| `dataset` | `raw` \| `processed` \| `curated` | Qual versão do texto |
+| `format` | `json` \| `csv` \| `txt` \| `md` \| `xml` | Serialização; o padrão é `json` |
 | `includeDuplicates` | `true` \| `false` | Incluir itens `duplicate` |
 
 ### 11.2 Regras de inclusão
 
 - **`raw`:** `content`. Duplicatas omitidas por padrão.
 - **`processed`:** `processedContent` (fallback `content`).
-- **`curated`:** exige `llmCurationData`; **exclui** `recommendation = discard`.
-- **`rewritten`:** exige texto reescrito; também exclui `discard`; no modo SFT, **explode** um registro por par `instruction`/`output`. Nesse caso `text` é igual a `output`. Nos outros estágios, `instruction` e `output` ficam vazios e `text` carrega a prosa.
+- **`curated`:** exige `llmCurationData`; **exclui** `recommendation = discard`. O texto continua sendo o processado.
 
 Contadores `skippedDuplicates` e `skippedDiscarded` voltam na resposta para o relatório experimental.
 
 ### 11.3 Campos
 
-Cada registro, em qualquer formato, tem exatamente estas chaves, sempre presentes. Valor ausente é `null` (JSON, JSONL e Markdown), string vazia (CSV e TXT) ou elemento vazio (XML):
+Cada registro, em qualquer formato, tem exatamente estas chaves, sempre presentes. Valor ausente é `null` (JSON e Markdown), string vazia (CSV e TXT) ou elemento vazio (XML):
 
-`id`, `title`, `youtubeId`, `playlistId`, `language`, `dataset`, `rewriteMode`, `deduplicationStatus`, `qualityScore`, `mtldScore`, `mattrScore`, `llmCurationScore`, `recommendation`, `instruction`, `output`, `text`.
+`id`, `title`, `youtubeId`, `playlistId`, `language`, `dataset`, `deduplicationStatus`, `dedupGroupId`, `qualityScore`, `mtldScore`, `mattrScore`, `llmCurationScore`, `recommendation`, `coherence`, `richness`, `factuality`, `curationOverall`, `curationRationale`, `curationProvider`, `curationModel`, `curationChunkCount`, `text`.
 
-O JSONL de SFT não é um objeto reduzido: a linha traz o registro inteiro, inclusive as métricas. Isso permite filtrar *a posteriori* por limiar de MATTR ou de nota do juiz sem reprocessar o corpus.
+`text` é o único campo de conteúdo. Os demais campos de curadoria repetem o julgamento do LLM e o grupo de deduplicação quando essas etapas já rodaram; ficam vazios no caso contrário. Isso permite filtrar *a posteriori* por limiar de MATTR, nota do juiz ou recomendação sem reprocessar o corpus.
 
 ### 11.4 Formatos
 
@@ -661,29 +605,33 @@ O JSONL de SFT não é um objeto reduzido: a linha traz o registro inteiro, incl
     "youtubeId": "...",
     "playlistId": "...",
     "language": "pt",
-    "dataset": "rewritten",
-    "rewriteMode": "sft",
+    "dataset": "curated",
     "deduplicationStatus": "kept",
+    "dedupGroupId": "...",
     "qualityScore": 0.9,
     "mtldScore": 50,
     "mattrScore": 0.8,
     "llmCurationScore": 0.88,
     "recommendation": "sft_example",
-    "instruction": "...",
-    "output": "...",
+    "coherence": 9,
+    "richness": 8,
+    "factuality": 9,
+    "curationOverall": 8.7,
+    "curationRationale": "...",
+    "curationProvider": "openai",
+    "curationModel": "gpt-4o-mini",
+    "curationChunkCount": 1,
     "text": "..."
   }
 ]
 ```
 
-**JSONL** (`application/jsonl`). Um objeto por linha, com as mesmas chaves.
-
 **CSV** (`text/csv`). Cabeçalho fixo na ordem dos campos acima. Células com vírgula, aspas ou quebra de linha vão entre aspas, com aspas internas duplicadas.
 
-**TXT** (`text/plain`). Cabeçalho `# dataset:` e `# records:`. Cada exemplo fica entre `<<<RECORD>>>` e `<<<END>>>`. Escalares em `chave: valor`. `instruction`, `output` e `text` em blocos `chave<<<` … `>>>`. Uma linha de conteúdo que seja exatamente `>>>`, `<<<RECORD>>>` ou `<<<END>>>` é prefixada com `\`.
+**TXT** (`text/plain`). Cabeçalho `# dataset:` e `# records:`. Cada exemplo fica entre `<<<RECORD>>>` e `<<<END>>>`. Escalares em `chave: valor`. `text` em bloco `text<<<` … `>>>`. Uma linha de conteúdo que seja exatamente `>>>`, `<<<RECORD>>>` ou `<<<END>>>` é prefixada com `\`.
 
 ```text
-# dataset: rewritten
+# dataset: curated
 # records: 1
 
 <<<RECORD>>>
@@ -692,32 +640,34 @@ title: ...
 youtubeId: ...
 playlistId: ...
 language: pt
-dataset: rewritten
-rewriteMode: sft
+dataset: curated
 deduplicationStatus: kept
+dedupGroupId: ...
 qualityScore: 0.9
 mtldScore: 50
 mattrScore: 0.8
 llmCurationScore: 0.88
 recommendation: sft_example
-instruction<<<
-...
->>>
-output<<<
-...
->>>
+coherence: 9
+richness: 8
+factuality: 9
+curationOverall: 8.7
+curationRationale: ...
+curationProvider: openai
+curationModel: gpt-4o-mini
+curationChunkCount: 1
 text<<<
 ...
 >>>
 <<<END>>>
 ```
 
-**MD** (`text/markdown`). Cabeçalho com estágio e contagem. Cada registro abre com front matter dos campos escalares e segue com as seções `## instruction`, `## output` e `## text`.
+**MD** (`text/markdown`). Cabeçalho com estágio e contagem. Cada registro abre com front matter dos campos escalares e segue com a seção `## text`.
 
 ```markdown
 # Dataset
 
-- stage: rewritten
+- stage: curated
 - records: 1
 
 ---
@@ -726,23 +676,23 @@ title: "..."
 youtubeId: "..."
 playlistId: "..."
 language: "pt"
-dataset: "rewritten"
-rewriteMode: "sft"
+dataset: "curated"
 deduplicationStatus: "kept"
+dedupGroupId: "..."
 qualityScore: 0.9
 mtldScore: 50
 mattrScore: 0.8
 llmCurationScore: 0.88
 recommendation: "sft_example"
+coherence: 9
+richness: 8
+factuality: 9
+curationOverall: 8.7
+curationRationale: "..."
+curationProvider: "openai"
+curationModel: "gpt-4o-mini"
+curationChunkCount: 1
 ---
-
-## instruction
-
-...
-
-## output
-
-...
 
 ## text
 
@@ -753,29 +703,35 @@ recommendation: "sft_example"
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<dataset recordCount="1" stage="rewritten">
+<dataset recordCount="1" stage="curated">
   <record>
     <id>...</id>
     <title>...</title>
     <youtubeId>...</youtubeId>
     <playlistId>...</playlistId>
     <language>pt</language>
-    <dataset>rewritten</dataset>
-    <rewriteMode>sft</rewriteMode>
+    <dataset>curated</dataset>
     <deduplicationStatus>kept</deduplicationStatus>
+    <dedupGroupId>...</dedupGroupId>
     <qualityScore>0.9</qualityScore>
     <mtldScore>50</mtldScore>
     <mattrScore>0.8</mattrScore>
     <llmCurationScore>0.88</llmCurationScore>
     <recommendation>sft_example</recommendation>
-    <instruction>...</instruction>
-    <output>...</output>
+    <coherence>9</coherence>
+    <richness>8</richness>
+    <factuality>9</factuality>
+    <curationOverall>8.7</curationOverall>
+    <curationRationale>...</curationRationale>
+    <curationProvider>openai</curationProvider>
+    <curationModel>gpt-4o-mini</curationModel>
+    <curationChunkCount>1</curationChunkCount>
     <text>...</text>
   </record>
 </dataset>
 ```
 
-A playlist, a página da transcrição e os jobs disparam esse endpoint. O seletor de estágio (`raw` / `processed` / `curated` / `rewritten`) continua disponível; o padrão da tela é o estágio mais avançado já produzido. O download explícito de um vídeo envia `includeDuplicates=true`, para o arquivo não sair vazio só porque aquele item foi marcado como duplicata. A exportação da playlist mantém a omissão padrão.
+A playlist, a página da transcrição e os jobs disparam esse endpoint. O seletor de estágio (`raw` / `processed` / `curated`) continua disponível; o padrão da tela é o estágio mais avançado já produzido. O download explícito de um vídeo envia `includeDuplicates=true`, para o arquivo não sair vazio só porque aquele item foi marcado como duplicata. A exportação da playlist mantém a omissão padrão.
 
 ---
 
@@ -787,19 +743,18 @@ O frontend não é apenas vitrine: ele materializa a metodologia.
 
 **Página da transcrição (`/dashboard/transcriptions/[id]`).**
 
-- Abas de texto: **Original**, **Processado**, **Reescrito**.
-- Painel **Relatório de qualidade**: \(Q\), ruído (diagnóstico, fora do score), TTR enviesado, MATTR, MTLD, taxa de artefatos, vírgulas órfãs, letras soltas, hesitações, repetições, timestamps, língua. Abas Bruto, Processado e Reescrito usam a mesma função, cada uma sobre o próprio texto.
-- Ações: Reprocessar, Deduplicar segmentos, Curadoria LLM, Reescrever (WRAP) com seletor Pré-treino / SFT.
-- Exportar dataset (JSONL, JSON, CSV, TXT, MD, XML) no estágio Original, Processado ou Reescrito.
-- Após WRAP: abas **Antes / Depois** no relatório.
+- Abas de texto: **Original** e **Processado**.
+- Painel **Relatório de qualidade**: \(Q\), ruído (diagnóstico, fora do score), TTR enviesado, MATTR, MTLD, taxa de artefatos, vírgulas órfãs, letras soltas, hesitações, repetições, timestamps, língua. Abas Bruto e Processado usam a mesma função, cada uma sobre o próprio texto. A curadoria LLM aparece no texto processado.
+- Ações: Reprocessar, Deduplicar segmentos e Curadoria LLM.
+- Exportar dataset (JSON, CSV, TXT, MD, XML) no estágio Original ou Processado.
 
 **Página da playlist (`/dashboard/playlists/[id]`).**
 
-- Lista de vídeos com status de dedup, nota de curadoria e modo WRAP.
-- Botão de deduplicação da playlist.
-- Export de fine-tuning com seletor de estágio e de formato (JSONL, JSON, CSV, TXT, MD, XML).
+- Lista de vídeos com status de dedup e nota de curadoria.
+- Botão de deduplicação da playlist e curadoria dos pendentes.
+- Export de fine-tuning com seletor de estágio (Bruto, Processado, Curado) e de formato (JSON, CSV, TXT, MD, XML).
 
-Fluxo de tela alinhado ao fluxo científico: o pesquisador vê o bruto, o limpo e o reescrito lado a lado, com números, antes de baixar o dataset.
+Fluxo de tela alinhado ao fluxo científico: o pesquisador vê o bruto e o processado lado a lado, com o julgamento da curadoria, antes de baixar o dataset.
 
 ---
 
@@ -818,13 +773,12 @@ Prefixo autenticado, salvo auth. Documentação OpenAPI em `http://localhost:333
 | `POST` | `/transcriptions/video` | Criar transcrição de vídeo |
 | `POST` | `/transcriptions/playlist` | Criar transcrições de playlist |
 | `GET` | `/transcriptions` | Listar |
-| `GET` | `/transcriptions/:id` | Detalhe completo (métricas, curadoria, WRAP) |
+| `GET` | `/transcriptions/:id` | Detalhe completo (métricas e curadoria) |
 | `POST` | `/transcriptions/:id/process` | Reexecutar limpeza |
 | `POST` | `/transcriptions/:id/deduplicate` | Dedup de sentenças |
 | `POST` | `/transcriptions/playlists/:id/deduplicate` | Dedup da playlist |
 | `POST` | `/transcriptions/channels/:channelId/deduplicate` | Dedup do canal |
 | `POST` | `/transcriptions/:id/curate` | Juiz LLM |
-| `POST` | `/transcriptions/:id/rewrite` | WRAP |
 | `GET` | `/transcriptions/playlists` | Playlists do usuário |
 | `GET` | `/transcriptions/playlists/:id` | Playlist + vídeos |
 | `GET` | `/exports/fine-tuning` | Dataset de treino |
@@ -845,27 +799,27 @@ DEDUP_JACCARD_THRESHOLD=0.8
 DEDUP_NGRAM_SIZE=3
 ```
 
-Reprodutibilidade: o mesmo corpus, com as mesmas variáveis, deve produzir o mesmo conjunto de hashes de duplicata exata. MinHash é estocástico na construção das permutações da biblioteca, mas o limiar e o \(n\) ficam fixos no ambiente. A curadoria e a reescrita **não são determinísticas** (temperatura 0,2); por isso `provider` e `model` são persistidos em cada registro, e o TCC deve reportar o modelo juiz utilizado.
+Reprodutibilidade: o mesmo corpus, com as mesmas variáveis, deve produzir o mesmo conjunto de hashes de duplicata exata. MinHash é estocástico na construção das permutações da biblioteca, mas o limiar e o \(n\) ficam fixos no ambiente. A curadoria **não é determinística** (temperatura 0,2); por isso `provider` e `model` são persistidos em cada registro e saem no dataset, e o TCC deve reportar o modelo juiz utilizado.
 
 ---
 
 ## 15. Metodologia experimental sugerida para o TCC
 
-O software entrega quatro versões do mesmo corpus. A validação empírica forte — prevista desde o desenho da evolução do pré-processamento — é **externa ao aplicativo**: treinar e comparar modelos.
+O software entrega três versões do mesmo corpus, todas fiéis à fala transcrita. A validação empírica forte — prevista desde o desenho da evolução do pré-processamento — é **externa ao aplicativo**: treinar e comparar modelos.
 
 Protocolo recomendado (ainda que o treino LoRA não esteja implementado no TranscribeX):
 
 1. Escolher um domínio (ex.: playlist educacional de um canal).
-2. Exportar quatro JSONLs: `raw`, `processed`, `curated`, `rewritten` (este último no modo alinhado à tarefa: prosa para pré-treino, pares para SFT).
-3. Registrar, para cada export, `recordCount`, `skippedDuplicates`, `skippedDiscarded`.
+2. Exportar três JSONs: `raw`, `processed` e `curated`.
+3. Registrar, para cada export, `recordCount`, `skippedDuplicates`, `skippedDiscarded` e o modelo juiz (`curationProvider`, `curationModel`).
 4. Fine-tuning piloto com o **mesmo** modelo-base e o **mesmo** orçamento (ex.: LoRA em Llama 3 8B).
 5. Avaliar em conjunto de validação separado:
    - perplexidade (pré-treino / linguagem);
-   - tarefa alvo (se SFT);
+   - tarefa alvo, filtrando pelo campo `recommendation` quando o uso for SFT;
    - juiz LLM e/ou avaliação humana em amostra.
 6. Reportar também as métricas internas (MATTR, MTLD, notas de coerência/riqueza/factualidade) como **descritivas**, não como prova de superioridade.
 
-Esse desenho atende ao argumento de que um `qualityScore` interno não substitui evidência de treino (Zhou et al., 2023; Maini et al., 2024).
+Esse desenho atende ao argumento de que um `qualityScore` interno não substitui evidência de treino (Zhou et al., 2023).
 
 ---
 
@@ -874,11 +828,10 @@ Esse desenho atende ao argumento de que um `qualityScore` interno não substitui
 1. **Não há ASR próprio.** A cobertura depende de o YouTube oferecer legenda no vídeo.
 2. **Playlist síncrona.** Playlists grandes podem estourar timeout HTTP; não há fila.
 3. **Factualidade aparente.** O juiz LLM não verifica fatos contra o mundo; apenas penaliza incoerência e vazio.
-4. **WRAP pode omitir ou suavizar.** Apesar do *prompt* “não omitir conteúdo substancial”, modelos gerativos não oferecem garantia formal de fidelidade. A aba Antes/Depois e a re-curadoria existem justamente para inspecionar regressões.
-5. **Pesos do \(Q\)** são heurísticos.
-6. **Deduplicação lexical, não semântica profunda.** MinHash sobre n-gramas não captura paráfrases distantes; embeddings do tipo BGE-M3 foram considerados no desenho e ficaram fora desta versão, em favor de um método clássico, barato e citável (Lee et al., 2022).
-7. **Truncamento da curadoria em 6.000 caracteres.** Vídeos longos são julgados por um prefixo.
-8. **Créditos / billing.** Não há sistema de créditos no código atual (mencionado apenas em documentação antiga de playlist).
+4. **Pesos do \(Q\)** são heurísticos.
+5. **Deduplicação lexical, não semântica profunda.** MinHash sobre n-gramas não captura paráfrases distantes; embeddings do tipo BGE-M3 foram considerados no desenho e ficaram fora desta versão, em favor de um método clássico, barato e citável (Lee et al., 2022).
+6. **Truncamento da curadoria em 6.000 caracteres.** Vídeos longos são julgados por um prefixo.
+7. **Créditos / billing.** Não há sistema de créditos no código atual (mencionado apenas em documentação antiga de playlist).
 
 ---
 
@@ -890,7 +843,6 @@ As referências abaixo fundamentam escolhas de implementação. Completar com da
 - **Covington, M. A., & McFall, J. D. (2010).** *Cutting the Gordian knot: The moving-average type–token ratio (MATTR).* Journal of Quantitative Linguistics. — MATTR com janela fixa.
 - **Lee, K. et al. (2022).** *Deduplicating Training Data Makes Language Models Better.* ACL. — Deduplicação exata e aproximada; efeito sobre memorização e distribuição.
 - **Zhou, C. et al. (2023).** *LIMA: Less Is More for Alignment.* — Qualidade supera quantidade em SFT.
-- **Maini, P. et al. (2024).** *WRAP: Rephrasing the Web (A Recipe for Compute and Data-Efficient Language Modeling).* — Reescrita de forma (enciclopédica / QA) como etapa de eficiência de dados.
 
 ---
 
@@ -905,11 +857,10 @@ As referências abaixo fundamentam escolhas de implementação. Completar com da
 | Ponte Node–Python | `backend/src/lib/python-runner.ts` |
 | Deduplicação | `backend/scripts/deduplicator.py`, `text-dedup-service.ts` |
 | Curadoria LLM | `backend/scripts/llm_curator.py`, `llm-curation-service.ts` |
-| Reescrita WRAP | `backend/scripts/llm_rewriter.py`, `llm-rewrite-service.ts` |
 | Export de dataset | `dataset-serializer.ts`, `fine-tuning-export-service.ts`, `export-fine-tuning.ts` |
 | Schema | `backend/prisma/schema.prisma` |
-| UI de métricas / Antes–Depois | `quality-metrics-panel.tsx` |
-| UI de texto Original / Processado / Reescrito | `transcript-content.tsx` |
+| UI de métricas | `quality-metrics-panel.tsx` |
+| UI de texto Original / Processado | `transcript-content.tsx` |
 | UI de export da playlist | `playlist-curation-panel.tsx` |
 
 Este documento descreve o sistema **como implementado**. Alterações futuras (fila assíncrona, ASR próprio, embeddings semânticos, treino LoRA integrado) devem ser registradas como trabalho futuro, não como capacidade atual.

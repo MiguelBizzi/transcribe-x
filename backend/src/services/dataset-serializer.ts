@@ -1,5 +1,5 @@
-export type DatasetStage = 'raw' | 'processed' | 'curated' | 'rewritten'
-export type DatasetFormat = 'jsonl' | 'csv' | 'json' | 'txt' | 'md' | 'xml'
+export type DatasetStage = 'raw' | 'processed' | 'curated'
+export type DatasetFormat = 'json' | 'csv' | 'txt' | 'md' | 'xml'
 
 export const DATASET_FIELDS = [
     'id',
@@ -8,21 +8,27 @@ export const DATASET_FIELDS = [
     'playlistId',
     'language',
     'dataset',
-    'rewriteMode',
     'deduplicationStatus',
+    'dedupGroupId',
     'qualityScore',
     'mtldScore',
     'mattrScore',
     'llmCurationScore',
     'recommendation',
-    'instruction',
-    'output',
+    'coherence',
+    'richness',
+    'factuality',
+    'curationOverall',
+    'curationRationale',
+    'curationProvider',
+    'curationModel',
+    'curationChunkCount',
     'text',
 ] as const
 
 export type DatasetField = (typeof DATASET_FIELDS)[number]
 
-const TEXT_FIELDS = ['instruction', 'output', 'text'] as const
+const TEXT_FIELDS = ['text'] as const
 type TextField = (typeof TEXT_FIELDS)[number]
 
 const SCALAR_FIELDS = DATASET_FIELDS.filter(
@@ -37,15 +43,21 @@ export interface DatasetRecord {
     playlistId: string | null
     language: string | null
     dataset: DatasetStage
-    rewriteMode: string | null
     deduplicationStatus: string
+    dedupGroupId: string | null
     qualityScore: number | null
     mtldScore: number | null
     mattrScore: number | null
     llmCurationScore: number | null
     recommendation: string | null
-    instruction: string | null
-    output: string | null
+    coherence: number | null
+    richness: number | null
+    factuality: number | null
+    curationOverall: number | null
+    curationRationale: string | null
+    curationProvider: string | null
+    curationModel: string | null
+    curationChunkCount: number | null
     text: string
 }
 
@@ -53,8 +65,6 @@ export function datasetMimeType(format: DatasetFormat): string {
     switch (format) {
         case 'json':
             return 'application/json;charset=utf-8'
-        case 'jsonl':
-            return 'application/jsonl;charset=utf-8'
         case 'csv':
             return 'text/csv;charset=utf-8'
         case 'txt':
@@ -74,15 +84,21 @@ export function canonicalRecord(record: DatasetRecord): DatasetRecord {
         playlistId: record.playlistId,
         language: record.language,
         dataset: record.dataset,
-        rewriteMode: record.rewriteMode,
         deduplicationStatus: record.deduplicationStatus,
+        dedupGroupId: record.dedupGroupId,
         qualityScore: record.qualityScore,
         mtldScore: record.mtldScore,
         mattrScore: record.mattrScore,
         llmCurationScore: record.llmCurationScore,
         recommendation: record.recommendation,
-        instruction: record.instruction,
-        output: record.output,
+        coherence: record.coherence,
+        richness: record.richness,
+        factuality: record.factuality,
+        curationOverall: record.curationOverall,
+        curationRationale: record.curationRationale,
+        curationProvider: record.curationProvider,
+        curationModel: record.curationModel,
+        curationChunkCount: record.curationChunkCount,
         text: record.text,
     }
 }
@@ -131,11 +147,7 @@ function textValue(record: DatasetRecord, field: TextField): string {
 }
 
 function escapeTxtLine(line: string): string {
-    if (
-        line === '>>>' ||
-        line === '<<<RECORD>>>' ||
-        line === '<<<END>>>'
-    ) {
+    if (line === '>>>' || line === '<<<RECORD>>>' || line === '<<<END>>>') {
         return `\\${line}`
     }
     return line
@@ -143,10 +155,6 @@ function escapeTxtLine(line: string): string {
 
 function serializeJson(records: DatasetRecord[]): string {
     return JSON.stringify(records.map(canonicalRecord), null, 2)
-}
-
-function serializeJsonl(records: DatasetRecord[]): string {
-    return records.map((record) => JSON.stringify(canonicalRecord(record))).join('\n')
 }
 
 function serializeCsv(records: DatasetRecord[]): string {
@@ -231,8 +239,6 @@ export function serializeDataset(
         switch (format) {
             case 'json':
                 return serializeJson(records)
-            case 'jsonl':
-                return serializeJsonl(records)
             case 'csv':
                 return serializeCsv(records)
             case 'txt':

@@ -12,7 +12,7 @@ export async function exportFineTuning(app: FastifyInstance) {
             schema: {
                 tags: ['Exports'],
                 summary:
-                    'Export a fine-tuning dataset as JSON, JSONL, CSV, TXT, Markdown, or XML',
+                    'Export a fine-tuning dataset as JSON, CSV, TXT, Markdown, or XML',
                 security: [{ bearerAuth: [] }],
                 querystring: z.object({
                     scope: z
@@ -21,11 +21,11 @@ export async function exportFineTuning(app: FastifyInstance) {
                     playlistId: z.string().uuid().optional(),
                     transcriptionId: z.string().uuid().optional(),
                     dataset: z
-                        .enum(['raw', 'processed', 'curated', 'rewritten'])
+                        .enum(['raw', 'processed', 'curated'])
                         .default('curated'),
                     format: z
-                        .enum(['jsonl', 'csv', 'json', 'txt', 'md', 'xml'])
-                        .default('jsonl'),
+                        .enum(['json', 'csv', 'txt', 'md', 'xml'])
+                        .default('json'),
                     includeDuplicates: z.enum(['true', 'false']).default('false'),
                 }),
                 response: {

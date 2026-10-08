@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import type { LlmCurationData } from './llm-curation-service'
 import type { QualityMetrics } from './text-quality-service'
-import type { RewriteData, RewriteMode } from './llm-rewrite-service'
 import {
     serializeDataset,
     type DatasetFormat,
@@ -29,14 +28,10 @@ function resolveText(
     transcription: {
         content: string | null
         processedContent: string | null
-        rewrittenContent: string | null
     },
 ): string {
     if (dataset === 'raw') {
         return transcription.content?.trim() || ''
-    }
-    if (dataset === 'rewritten') {
-        return transcription.rewrittenContent?.trim() || ''
     }
     return (
         transcription.processedContent?.trim() ||
@@ -84,15 +79,13 @@ export class FineTuningExportService {
                 language: true,
                 content: true,
                 processedContent: true,
-                rewrittenContent: true,
-                rewriteMode: true,
-                rewriteData: true,
                 qualityMetrics: true,
                 mtldScore: true,
                 mattrScore: true,
                 llmCurationScore: true,
                 llmCurationData: true,
                 deduplicationStatus: true,
+                dedupGroupId: true,
             },
         })
 
@@ -110,18 +103,23 @@ export class FineTuningExportService {
             }
 
             const curation = transcription.llmCurationData as LlmCurationData | null
-            if (query.dataset === 'curated' || query.dataset === 'rewritten') {
-                if (query.dataset === 'curated' && !curation) {
+            if (query.dataset === 'curated') {
+                if (!curation) {
                     continue
                 }
-                if (curation?.recommendation === 'discard') {
+                if (curation.recommendation === 'discard') {
                     skippedDiscarded += 1
                     continue
                 }
             }
 
+            const text = resolveText(query.dataset, transcription)
+            if (!text) {
+                continue
+            }
+
             const metrics = transcription.qualityMetrics as QualityMetrics | null
-            const base = {
+            records.push({
                 id: transcription.id,
                 title: transcription.title,
                 youtubeId: transcription.youtubeId,
@@ -133,40 +131,17 @@ export class FineTuningExportService {
                 mattrScore: transcription.mattrScore,
                 llmCurationScore: transcription.llmCurationScore,
                 recommendation: curation?.recommendation ?? null,
+                coherence: curation?.coherence ?? null,
+                richness: curation?.richness ?? null,
+                factuality: curation?.factuality ?? null,
+                curationOverall: curation?.overall ?? null,
+                curationRationale: curation?.rationale ?? null,
+                curationProvider: curation?.provider ?? null,
+                curationModel: curation?.model ?? null,
+                curationChunkCount: curation?.chunkCount ?? null,
                 deduplicationStatus: transcription.deduplicationStatus,
-            }
-
-            if (query.dataset === 'rewritten') {
-                const rewriteData = transcription.rewriteData as RewriteData | null
-                const rewriteMode = (transcription.rewriteMode ||
-                    rewriteData?.mode ||
-                    null) as RewriteMode | null
-
-                if (rewriteMode === 'sft' && rewriteData?.pairs?.length) {
-                    for (const pair of rewriteData.pairs) {
-                        records.push({
-                            ...base,
-                            text: pair.output,
-                            instruction: pair.instruction,
-                            output: pair.output,
-                            rewriteMode,
-                        })
-                    }
-                    continue
-                }
-            }
-
-            const text = resolveText(query.dataset, transcription)
-            if (!text) {
-                continue
-            }
-
-            records.push({
-                ...base,
+                dedupGroupId: transcription.dedupGroupId,
                 text,
-                instruction: null,
-                output: null,
-                rewriteMode: (transcription.rewriteMode as RewriteMode | null) ?? null,
             })
         }
 

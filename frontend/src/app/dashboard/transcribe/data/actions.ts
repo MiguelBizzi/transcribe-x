@@ -11,8 +11,6 @@ import type {
   PlaylistTranscriptionRequest,
   PlaylistTranscriptionResponse,
   QualityMetrics,
-  RewriteData,
-  RewriteMode,
 } from './types'
 import { getTranscriptionById } from './transcriptions'
 import { getPlaylistTranscriptionById } from './playlist-transcriptions'
@@ -261,55 +259,6 @@ export const deduplicatePlaylistAction = actionClient
     }
   })
 
-const rewriteTranscriptionSchema = z.object({
-  id: z.string().uuid('ID da transcrição inválido'),
-  mode: z.enum(['pretraining', 'sft']),
-})
-
-export const rewriteTranscriptionAction = actionClient
-  .inputSchema(rewriteTranscriptionSchema)
-  .action(async ({ parsedInput: { id, mode } }) => {
-    try {
-      const response = await apiFetch<{
-        message: string
-        transcription: {
-          id: string
-          rewrittenContent: string
-          rewriteMode: RewriteMode
-          rewriteData: RewriteData
-          rewrittenQualityMetrics: QualityMetrics | null
-          rewrittenLlmCurationScore: number | null
-          rewrittenLlmCurationData: LlmCurationData | null
-        }
-      }>(`/transcriptions/${id}/rewrite`, {
-        method: 'POST',
-        body: JSON.stringify({ mode }),
-      })
-
-      revalidatePath(`/dashboard/transcriptions/${id}`)
-      revalidatePath('/dashboard/playlists')
-
-      return {
-        success: true,
-        message: response.message,
-        transcription: response.transcription,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Falha ao reescrever a transcrição',
-      }
-    }
-  })
-
-const rewritePlaylistSchema = z.object({
-  id: z.string().uuid('ID da playlist inválido'),
-  mode: z.enum(['pretraining', 'sft']),
-})
-
 export const curatePlaylistAction = actionClient
   .inputSchema(deduplicatePlaylistSchema)
   .action(async ({ parsedInput: { id } }) => {
@@ -342,47 +291,12 @@ export const curatePlaylistAction = actionClient
     }
   })
 
-export const rewritePlaylistAction = actionClient
-  .inputSchema(rewritePlaylistSchema)
-  .action(async ({ parsedInput: { id, mode } }) => {
-    try {
-      const response = await apiFetch<{
-        message: string
-        rewritten: number
-        skipped: number
-        failed: number
-      }>(`/transcriptions/playlists/${id}/rewrite`, {
-        method: 'POST',
-        body: JSON.stringify({ mode }),
-      })
-
-      revalidatePath(`/dashboard/playlists/${id}`)
-      revalidatePath('/dashboard/transcribe')
-
-      return {
-        success: true as const,
-        rewritten: response.rewritten,
-        skipped: response.skipped,
-        failed: response.failed,
-        message: response.message,
-      }
-    } catch (error) {
-      return {
-        success: false as const,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Falha ao reescrever a playlist',
-      }
-    }
-  })
-
 const fineTuningExportSchema = z.object({
   scope: z.enum(['playlist', 'user', 'transcription']),
   playlistId: z.string().uuid().optional(),
   transcriptionId: z.string().uuid().optional(),
-  dataset: z.enum(['raw', 'processed', 'curated', 'rewritten']),
-  format: z.enum(['jsonl', 'csv', 'json', 'txt', 'md', 'xml']),
+  dataset: z.enum(['raw', 'processed', 'curated']),
+  format: z.enum(['json', 'csv', 'txt', 'md', 'xml']),
   includeDuplicates: z.boolean().optional(),
 })
 

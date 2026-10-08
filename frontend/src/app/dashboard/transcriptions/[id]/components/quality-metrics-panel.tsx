@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RefreshCw, Sparkles, CopyMinus, PenLine } from 'lucide-react'
+import { RefreshCw, Sparkles, CopyMinus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,14 +17,12 @@ import {
 import type {
   LlmCurationData,
   QualityMetrics,
-  RewriteMode,
   TranscriptionDetail,
 } from '@/app/dashboard/transcribe/data/types'
 import {
   curateTranscriptionAction,
   deduplicateTranscriptionAction,
   reprocessTranscriptionAction,
-  rewriteTranscriptionAction,
 } from '@/app/dashboard/transcribe/data/actions'
 import {
   formatPercent,
@@ -42,7 +40,6 @@ const PIPELINE_STEPS = [
   'processed',
   'deduplicated',
   'curated',
-  'rewritten',
 ] as const
 
 type PipelineStep = (typeof PIPELINE_STEPS)[number]
@@ -52,7 +49,6 @@ const STEP_LABELS: Record<PipelineStep, string> = {
   processed: 'Processado',
   deduplicated: 'Deduplicado',
   curated: 'Curado',
-  rewritten: 'Reescrito',
 }
 
 function toneClasses(score: number) {
@@ -129,16 +125,14 @@ function pipelineState(transcription: TranscriptionDetail): {
   const processed = Boolean(transcription.isProcessed)
   const deduplicated = transcription.deduplicationStatus !== 'pending'
   const curated = Boolean(transcription.llmCurationData)
-  const rewritten = Boolean(transcription.rewrittenContent?.trim())
   const completed: PipelineStep[] = []
   if (extracted) completed.push('extracted')
   if (processed) completed.push('processed')
   if (deduplicated) completed.push('deduplicated')
   if (curated) completed.push('curated')
-  if (rewritten) completed.push('rewritten')
 
   const current =
-    PIPELINE_STEPS.find((step) => !completed.includes(step)) ?? 'rewritten'
+    PIPELINE_STEPS.find((step) => !completed.includes(step)) ?? 'curated'
   return { completed, current }
 }
 
@@ -406,31 +400,21 @@ export function QualityMetricsPanel({
   const [isProcessing, setIsProcessing] = useState(false)
   const [isCurating, setIsCurating] = useState(false)
   const [isDeduplicating, setIsDeduplicating] = useState(false)
-  const [isRewriting, setIsRewriting] = useState(false)
   const metrics = transcription.qualityMetrics
   const rawMetrics = transcription.rawQualityMetrics
   const curation = transcription.llmCurationData
   const hasContent = Boolean(transcription.content?.trim())
   const hasDedup = transcription.deduplicationStatus !== 'pending'
   const isDuplicate = transcription.deduplicationStatus === 'duplicate'
-  const hasRewrite = Boolean(transcription.rewrittenContent?.trim())
   const canCurate = hasContent && hasDedup && !isDuplicate
-  const canRewrite =
-    Boolean(curation) &&
-    curation?.recommendation !== 'discard' &&
-    !isDuplicate
-  const canDedup = hasContent && !hasRewrite
+  const canDedup = hasContent
   const { completed, current } = pipelineState(transcription)
-  const [rewriteMode, setRewriteMode] = useState<RewriteMode>(
-    transcription.rewriteMode ||
-      (curation?.recommendation === 'sft_example' ? 'sft' : 'pretraining'),
-  )
 
   const handleReprocess = async () => {
     if (
-      (hasRewrite || Boolean(curation) || hasDedup) &&
+      (Boolean(curation) || hasDedup) &&
       !window.confirm(
-        'Reprocessar apaga deduplicação, curadoria e reescrita desta transcrição. Continuar?',
+        'Reprocessar apaga deduplicação e curadoria desta transcrição. Continuar?',
       )
     ) {
       return
@@ -532,44 +516,7 @@ export function QualityMetricsPanel({
     }
   }
 
-  const handleRewrite = async () => {
-    setIsRewriting(true)
-    try {
-      const result = await rewriteTranscriptionAction({
-        id: transcription.id,
-        mode: rewriteMode,
-      })
-
-      if (result.serverError) {
-        throw new Error(result.serverError)
-      }
-
-      if (!result.data?.success) {
-        throw new Error(
-          result.data?.message || 'Falha ao reescrever a transcrição',
-        )
-      }
-
-      toast.success(
-        'Reescrita WRAP concluída. Compare as abas Bruto, Processado e Reescrito.',
-      )
-      router.refresh()
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Falha ao reescrever a transcrição',
-      )
-    } finally {
-      setIsRewriting(false)
-    }
-  }
-
-  const defaultMetricsTab = hasRewrite
-    ? 'rewritten'
-    : metrics
-      ? 'processed'
-      : 'raw'
+  const defaultMetricsTab = metrics ? 'processed' : 'raw'
 
   return (
     <Card>
@@ -582,7 +529,7 @@ export function QualityMetricsPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        <ol className="relative grid grid-cols-5 gap-1 lg:gap-0">
+        <ol className="relative grid grid-cols-4 gap-1 lg:gap-0">
           <span
             aria-hidden
             className="bg-border absolute top-4 right-[10%] left-[10%] hidden h-px lg:block"
@@ -625,7 +572,7 @@ export function QualityMetricsPanel({
         </ol>
 
         <Tabs defaultValue={defaultMetricsTab}>
-          <TabsList className="grid h-9 w-full grid-cols-3">
+          <TabsList className="grid h-9 w-full grid-cols-2">
             <TabsTrigger value="raw" className="px-1.5 text-xs sm:text-sm">
               Bruto
             </TabsTrigger>
@@ -636,13 +583,6 @@ export function QualityMetricsPanel({
             >
               Processado
             </TabsTrigger>
-            <TabsTrigger
-              value="rewritten"
-              className="px-1.5 text-xs sm:text-sm"
-              disabled={!hasRewrite}
-            >
-              Reescrito
-            </TabsTrigger>
           </TabsList>
           <div className="mt-4">
             <TabsContent value="raw">
@@ -650,12 +590,6 @@ export function QualityMetricsPanel({
             </TabsContent>
             <TabsContent value="processed">
               <QualitySnapshot metrics={metrics} curation={curation} />
-            </TabsContent>
-            <TabsContent value="rewritten">
-              <QualitySnapshot
-                metrics={transcription.rewrittenQualityMetrics}
-                curation={transcription.rewrittenLlmCurationData}
-              />
             </TabsContent>
           </div>
         </Tabs>
@@ -685,11 +619,6 @@ export function QualityMetricsPanel({
               ? 'Removendo segmentos…'
               : 'Remover segmentos duplicados'}
           </Button>
-          {!canDedup && hasRewrite && (
-            <p className="text-muted-foreground text-xs">
-              Reprocesse para invalidar a reescrita antes de remover segmentos.
-            </p>
-          )}
           <Button
             variant={current === 'curated' ? 'default' : 'outline'}
             className="w-full"
@@ -704,39 +633,11 @@ export function QualityMetricsPanel({
               Remova segmentos duplicados antes da curadoria.
             </p>
           )}
-          <div className="space-y-2">
-            <Tabs
-              value={rewriteMode}
-              onValueChange={(value) => setRewriteMode(value as RewriteMode)}
-            >
-              <TabsList className="grid h-9 w-full grid-cols-2">
-                <TabsTrigger value="pretraining" className="px-2 text-xs sm:text-sm">
-                  Pré-treino
-                </TabsTrigger>
-                <TabsTrigger value="sft" className="px-2 text-xs sm:text-sm">
-                  SFT
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button
-              variant={current === 'rewritten' ? 'default' : 'outline'}
-              className="w-full"
-              onClick={handleRewrite}
-              disabled={isRewriting || !canRewrite}
-            >
-              <PenLine
-                className={cn('h-4 w-4', isRewriting && 'animate-spin')}
-              />
-              {isRewriting ? 'Reescrevendo…' : 'Reescrever (WRAP)'}
-            </Button>
-            {!canRewrite && (
-              <p className="text-muted-foreground text-xs">
-                {isDuplicate
-                  ? 'Vídeos marcados como duplicata não são reescritos.'
-                  : 'Execute a curadoria LLM antes. Itens marcados como Descartar não podem ser reescritos.'}
-              </p>
-            )}
-          </div>
+          {isDuplicate && (
+            <p className="text-muted-foreground text-xs">
+              Vídeos marcados como duplicata não entram na curadoria.
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

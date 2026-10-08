@@ -128,18 +128,11 @@ export class TextDedupService {
                 id: true,
                 content: true,
                 processedContent: true,
-                rewrittenContent: true,
             },
         })
 
         if (!transcription) {
             throw new Error('Transcription not found')
-        }
-
-        if (transcription.rewrittenContent?.trim()) {
-            throw new Error(
-                'Reprocesse a transcrição antes de remover segmentos: a reescrita WRAP já existe.',
-            )
         }
 
         const source =

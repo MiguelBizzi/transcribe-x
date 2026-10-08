@@ -18,7 +18,6 @@ export interface QualityMetrics {
 }
 
 export type CurationRecommendation = 'sft_example' | 'pretraining' | 'discard'
-export type RewriteMode = 'pretraining' | 'sft'
 
 export interface LlmCurationData {
   coherence: number
@@ -30,20 +29,6 @@ export interface LlmCurationData {
   provider: string
   model: string
   chunkCount?: number
-}
-
-export interface RewritePair {
-  instruction: string
-  output: string
-}
-
-export interface RewriteData {
-  mode: RewriteMode
-  provider: string
-  model: string
-  chunkCount?: number
-  pairCount?: number
-  pairs?: RewritePair[]
 }
 
 export interface TranscriptionJob {
@@ -99,16 +84,10 @@ export interface TranscriptionDetail extends Transcription {
   llmCurationData: LlmCurationData | null
   deduplicationStatus: string
   dedupGroupId: string | null
-  rewrittenContent: string | null
-  rewriteMode: RewriteMode | null
-  rewriteData: RewriteData | null
-  rewrittenQualityMetrics: QualityMetrics | null
-  rewrittenLlmCurationScore: number | null
-  rewrittenLlmCurationData: LlmCurationData | null
 }
 
-export type DatasetFormat = 'jsonl' | 'json' | 'csv' | 'txt' | 'md' | 'xml'
-export type DatasetStage = 'raw' | 'processed' | 'curated' | 'rewritten'
+export type DatasetFormat = 'json' | 'csv' | 'txt' | 'md' | 'xml'
+export type DatasetStage = 'raw' | 'processed' | 'curated'
 
 export interface Timestamp {
   text: string
@@ -204,8 +183,6 @@ export interface PlaylistVideoTranscription {
   llmCurationData: LlmCurationData | null
   errorMessage: string | null
   deduplicationStatus: string
-  rewrittenContent: string | null
-  rewriteMode: RewriteMode | null
   videoIndex: number | null
   createdAt: string
 }

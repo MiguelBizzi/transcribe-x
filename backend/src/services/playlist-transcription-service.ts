@@ -269,8 +269,6 @@ export class PlaylistTranscriptionService {
                         llmCurationData: true,
                         errorMessage: true,
                         deduplicationStatus: true,
-                        rewrittenContent: true,
-                        rewriteMode: true,
                         videoIndex: true,
                         createdAt: true,
                     },

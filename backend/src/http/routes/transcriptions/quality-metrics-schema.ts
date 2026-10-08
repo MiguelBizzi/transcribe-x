@@ -30,17 +30,3 @@ export const llmCurationDataSchema = z.object({
     model: z.string(),
     chunkCount: z.number().optional(),
 })
-
-export const rewritePairSchema = z.object({
-    instruction: z.string(),
-    output: z.string(),
-})
-
-export const rewriteDataSchema = z.object({
-    mode: z.enum(['pretraining', 'sft']),
-    provider: z.string(),
-    model: z.string(),
-    chunkCount: z.number().optional(),
-    pairCount: z.number().optional(),
-    pairs: z.array(rewritePairSchema).optional(),
-})

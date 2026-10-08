@@ -18,25 +18,19 @@ interface TranscriptionExportPanelProps {
   transcription: TranscriptionDetail
 }
 
-type ExportSource = 'raw' | 'clean' | 'rewritten'
+type ExportSource = 'raw' | 'clean'
 
 const SOURCE_DATASET: Record<ExportSource, DatasetStage> = {
   raw: 'raw',
   clean: 'processed',
-  rewritten: 'rewritten',
 }
 
 export function TranscriptionExportPanel({
   transcription,
 }: TranscriptionExportPanelProps) {
   const canExportClean = Boolean(transcription.processedContent?.trim())
-  const canExportRewritten = Boolean(transcription.rewrittenContent?.trim())
   const [source, setSource] = useState<ExportSource>(
-    canExportRewritten
-      ? 'rewritten'
-      : transcription.isProcessed
-        ? 'clean'
-        : 'raw',
+    transcription.isProcessed ? 'clean' : 'raw',
   )
   const [pendingFormat, setPendingFormat] = useState<DatasetFormat | null>(null)
 
@@ -76,9 +70,6 @@ export function TranscriptionExportPanel({
             <TabsTrigger value="raw">Original</TabsTrigger>
             <TabsTrigger value="clean" disabled={!canExportClean}>
               Processado
-            </TabsTrigger>
-            <TabsTrigger value="rewritten" disabled={!canExportRewritten}>
-              Reescrito
             </TabsTrigger>
           </TabsList>
         </Tabs>

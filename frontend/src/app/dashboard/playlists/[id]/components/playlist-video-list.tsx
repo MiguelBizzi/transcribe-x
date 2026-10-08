@@ -45,16 +45,15 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
         scope: 'transcription',
         transcriptionId: video.id,
         dataset: furthestDatasetStage({
-          rewrittenContent: video.rewrittenContent,
           processedContent: video.processedContent,
           isProcessed: video.isProcessed,
           llmCurationScore: video.llmCurationScore,
           recommendation: video.llmCurationData?.recommendation,
         }),
-        format: 'jsonl',
+        format: 'json',
         includeDuplicates: true,
       })
-      toast.success('JSONL baixado')
+      toast.success('JSON baixado')
     } catch (error) {
       toast.error(
         error instanceof Error

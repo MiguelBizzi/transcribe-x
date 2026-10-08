@@ -5,10 +5,4 @@ export const downstreamResetData: Prisma.TranscriptionUpdateInput = {
     dedupGroupId: null,
     llmCurationScore: null,
     llmCurationData: Prisma.DbNull,
-    rewrittenContent: null,
-    rewriteMode: null,
-    rewriteData: Prisma.DbNull,
-    rewrittenQualityMetrics: Prisma.DbNull,
-    rewrittenLlmCurationScore: null,
-    rewrittenLlmCurationData: Prisma.DbNull,
 }

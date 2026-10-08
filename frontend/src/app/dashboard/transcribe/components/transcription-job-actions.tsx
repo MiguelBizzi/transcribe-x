@@ -27,7 +27,6 @@ export function TranscriptionJobActions({
         scope: 'transcription',
         transcriptionId: transcription.id,
         dataset: furthestDatasetStage({
-          rewrittenContent: detail.rewrittenContent,
           processedContent: detail.processedContent,
           isProcessed: detail.isProcessed,
           llmCurationScore: detail.llmCurationScore,

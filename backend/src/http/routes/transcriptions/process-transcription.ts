@@ -50,7 +50,6 @@ export async function processTranscription(app: FastifyInstance) {
                     id: true,
                     content: true,
                     language: true,
-                    rewrittenContent: true,
                 },
             })
 
