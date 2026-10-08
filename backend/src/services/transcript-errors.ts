@@ -1,7 +1,19 @@
 import type { TranscriptResult } from './transcription-service'
 
-const RATE_LIMIT_MESSAGE =
-    'O YouTube limitou temporariamente o acesso às legendas. Tente novamente em alguns minutos.'
+export const RATE_LIMIT_MESSAGE =
+    'O YouTube limitou o acesso às legendas. O processamento foi cancelado.'
+
+export const RATE_LIMIT_CANCELLED_MESSAGE =
+    'Processamento cancelado porque o YouTube limitou o acesso às legendas.'
+
+export function isRateLimitErrorMessage(message?: string | null): boolean {
+    if (!message) return false
+    const normalized = message.toLowerCase()
+    return (
+        normalized.includes('limitou o acesso às legendas') ||
+        normalized.includes('limitou temporariamente o acesso às legendas')
+    )
+}
 
 export function isRateLimitedResult(
     result: Pick<TranscriptResult, 'error' | 'error_type'>,

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+    isRateLimitErrorMessage,
     isRateLimitedResult,
     transcriptErrorMessage,
 } from './transcript-errors'
@@ -15,7 +16,21 @@ describe('transcript error messages', () => {
         assert.equal(isRateLimitedResult(result), true)
         assert.equal(
             transcriptErrorMessage(result),
-            'O YouTube limitou temporariamente o acesso às legendas. Tente novamente em alguns minutos.',
+            'O YouTube limitou o acesso às legendas. O processamento foi cancelado.',
+        )
+        assert.equal(
+            isRateLimitErrorMessage(transcriptErrorMessage(result)),
+            true,
+        )
+        assert.equal(
+            isRateLimitErrorMessage(
+                'Processamento cancelado porque o YouTube limitou o acesso às legendas.',
+            ),
+            true,
+        )
+        assert.equal(
+            isRateLimitErrorMessage('Este vídeo não possui legendas disponíveis.'),
+            false,
         )
     })
 
@@ -26,7 +41,7 @@ describe('transcript error messages', () => {
         }
 
         assert.equal(isRateLimitedResult(result), true)
-        assert.match(transcriptErrorMessage(result), /limitou temporariamente/)
+        assert.match(transcriptErrorMessage(result), /limitou o acesso às legendas/)
     })
 
     it('keeps a missing caption distinct from a block', () => {

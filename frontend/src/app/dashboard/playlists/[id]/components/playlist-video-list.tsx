@@ -17,6 +17,7 @@ import { RetryFailedPlaylistButton } from '@/app/dashboard/transcribe/components
 import { RetryTranscriptionButton } from '@/app/dashboard/transcribe/components/retry-transcription-button'
 import { formatQualityScore, getQualityTone } from '@/utils/format-duration'
 import { formatStatus } from '@/utils/format-status'
+import { isRateLimitError } from '@/utils/rate-limit-error'
 import { cn } from '@/lib/utils'
 
 interface PlaylistVideoListProps {
@@ -48,8 +49,10 @@ export function PlaylistVideoList({
   processing = false,
 }: PlaylistVideoListProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null)
-  const failedCount = videos.filter(
-    (video) => video.status.toUpperCase() === 'ERROR',
+  const retryableFailed = videos.filter(
+    (video) =>
+      video.status.toUpperCase() === 'ERROR' &&
+      !isRateLimitError(video.errorMessage),
   ).length
   const currentProcessingId = videos.find(
     (video) => video.status.toUpperCase() === 'PROCESSING',
@@ -104,7 +107,7 @@ export function PlaylistVideoList({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Vídeos</CardTitle>
-        {(failedCount > 0 || processing) && (
+        {(retryableFailed > 0 || processing) && (
           <RetryFailedPlaylistButton playlistId={playlistId} />
         )}
       </CardHeader>
@@ -179,7 +182,9 @@ export function PlaylistVideoList({
               <Button asChild size="sm" variant="outline">
                 <Link href={`/dashboard/transcriptions/${video.id}`}>Ver</Link>
               </Button>
-              {video.status.toUpperCase() === 'ERROR' && !processing && (
+              {video.status.toUpperCase() === 'ERROR' &&
+                !processing &&
+                !isRateLimitError(video.errorMessage) && (
                 <RetryTranscriptionButton id={video.id} />
               )}
               {video.status.toUpperCase() === 'COMPLETED' &&

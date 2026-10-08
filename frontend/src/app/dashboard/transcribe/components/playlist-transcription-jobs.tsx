@@ -13,6 +13,7 @@ import { getPlaylistTranscriptions } from '../data/playlist-transcriptions'
 import { PlaylistJobActions } from './playlist-job-actions'
 import Link from 'next/link'
 import { formatPlaylistStatus } from '@/utils/format-status'
+import { isRateLimitError } from '@/utils/rate-limit-error'
 import { RetryFailedPlaylistButton } from './retry-failed-playlist-button'
 
 const getStatusIconSafe = (status: string) => {
@@ -46,7 +47,6 @@ const getStatusColorSafe = (status: string): string => {
 }
 
 const isCompleted = (status: string) => status.toUpperCase() === 'COMPLETED'
-const isError = (status: string) => status.toUpperCase() === 'ERROR'
 const isProcessing = (status: string) =>
   status.toUpperCase() === 'PROCESSING' || status.toUpperCase() === 'PENDING'
 
@@ -113,6 +113,11 @@ export async function PlaylistTranscriptionJobs() {
               ).length
               const processingVideos = videos.filter(
                 (video) => video.status.toUpperCase() === 'PROCESSING',
+              ).length
+              const retryableFailed = videos.filter(
+                (video) =>
+                  video.status.toUpperCase() === 'ERROR' &&
+                  !isRateLimitError(video.errorMessage),
               ).length
               const showDownloads =
                 videos.length === 0
@@ -197,10 +202,7 @@ export async function PlaylistTranscriptionJobs() {
                     <PlaylistJobActions playlist={playlist} />
                   )}
 
-                  {(failedVideos > 0 ||
-                    processingVideos > 0 ||
-                    isProcessing(playlist.status) ||
-                    isError(playlist.status)) && (
+                  {(retryableFailed > 0 || processingVideos > 0) && (
                       <RetryFailedPlaylistButton playlistId={playlist.id} />
                     )}
                 </div>

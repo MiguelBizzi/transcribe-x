@@ -168,6 +168,7 @@ export interface PlaylistJob {
   transcriptions?: Array<{
     id: string
     status: string
+    errorMessage?: string | null
   }>
 }
 

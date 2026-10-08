@@ -8,6 +8,7 @@ import { PlaylistJobsAccordion } from './playlist-jobs-accordion'
 import { RetryTranscriptionButton } from './retry-transcription-button'
 import { ProcessingRefresher } from '@/app/dashboard/components/processing-refresher'
 import { formatPlaylistStatus, formatStatus } from '@/utils/format-status'
+import { isRateLimitError } from '@/utils/rate-limit-error'
 import { cn } from '@/lib/utils'
 import type { Transcription } from '../data/types'
 
@@ -167,7 +168,8 @@ function TranscriptionJobCard({
         )}
 
         {transcription.status.toUpperCase() === 'ERROR' &&
-          transcription.playlist?.status.toUpperCase() !== 'PROCESSING' && (
+          transcription.playlist?.status.toUpperCase() !== 'PROCESSING' &&
+          !isRateLimitError(transcription.errorMessage) && (
             <RetryTranscriptionButton id={transcription.id} />
           )}
       </div>
@@ -239,6 +241,11 @@ export async function TranscriptionJobs() {
               const playlistProcessing = group.videos.filter(
                 (video) => video.status.toUpperCase() === 'PROCESSING',
               ).length
+              const retryableFailed = group.videos.filter(
+                (video) =>
+                  video.status.toUpperCase() === 'ERROR' &&
+                  !isRateLimitError(video.errorMessage),
+              ).length
 
               return (
                 <PlaylistJobsAccordion
@@ -251,6 +258,7 @@ export async function TranscriptionJobs() {
                   completedCount={playlistCompleted}
                   failedCount={playlistFailed}
                   processingCount={playlistProcessing}
+                  canRetry={retryableFailed > 0 || playlistProcessing > 0}
                   statusLabel={formatPlaylistStatus(
                     group.status,
                     playlistFailed,

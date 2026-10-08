@@ -16,6 +16,7 @@ interface PlaylistJobsAccordionProps {
   completedCount: number
   failedCount: number
   processingCount: number
+  canRetry: boolean
   statusLabel: string
   children: React.ReactNode
 }
@@ -29,6 +30,7 @@ export function PlaylistJobsAccordion({
   completedCount,
   failedCount,
   processingCount,
+  canRetry,
   statusLabel,
   children,
 }: PlaylistJobsAccordionProps) {
@@ -100,7 +102,7 @@ export function PlaylistJobsAccordion({
       {open && (
         <div className="space-y-3 border-t px-4 py-4">
           <div className="flex items-center justify-end gap-3">
-            {(failedCount > 0 || processingCount > 0) && (
+            {canRetry && (
               <RetryFailedPlaylistButton playlistId={playlistId} />
             )}
             <Link

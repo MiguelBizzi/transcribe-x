@@ -1,19 +1,20 @@
 import { prisma } from '../lib/prisma'
 import { youtubeService } from './youtube-service'
 import { textQualityService } from './text-quality-service'
+import { transcriptionService } from './transcription-service'
 import {
     TranscriptionStatus,
     TranscriptionType,
 } from '@/generated/prisma/client'
 import type { Prisma } from '@/generated/prisma/client'
-import { transcriptErrorMessage, isRateLimitedResult } from './transcript-errors'
 import {
-    fetchTranscriptWithBackoff,
-    INTER_VIDEO_DELAY_MS,
-    PLAYLIST_RATE_LIMIT_BACKOFF_MS,
-    RATE_LIMIT_COOLDOWN_MS,
-    sleep,
-} from './transcript-attempt'
+    RATE_LIMIT_CANCELLED_MESSAGE,
+    RATE_LIMIT_MESSAGE,
+    isRateLimitErrorMessage,
+    isRateLimitedResult,
+    transcriptErrorMessage,
+} from './transcript-errors'
+import { INTER_VIDEO_DELAY_MS, sleep } from './transcript-attempt'
 
 export interface PlaylistTranscriptionResult {
     success: boolean
@@ -146,8 +147,8 @@ export class PlaylistTranscriptionService {
                 })
             }
 
-            await this.transcribeRows(rows)
-            await this.refreshPlaylistSummary(playlistDbId)
+            const cancelledForRateLimit = await this.transcribeRows(rows)
+            await this.refreshPlaylistSummary(playlistDbId, cancelledForRateLimit)
         } catch (error) {
             await prisma.transcription.updateMany({
                 where: {
@@ -202,6 +203,7 @@ export class PlaylistTranscriptionService {
                     youtubeId: true,
                     status: true,
                     playlistId: true,
+                    errorMessage: true,
                 },
             })
 
@@ -216,6 +218,16 @@ export class PlaylistTranscriptionService {
                     outcome: 'rejected',
                     message:
                         'Só é possível tentar novamente uma transcrição com erro.',
+                    playlistId: transcription.playlistId,
+                }
+            }
+
+            if (isRateLimitErrorMessage(transcription.errorMessage)) {
+                processingTranscriptions.delete(transcriptionId)
+                return {
+                    outcome: 'rejected',
+                    message:
+                        'Vídeos bloqueados pelo limite do YouTube não podem ser tentados de novo.',
                     playlistId: transcription.playlistId,
                 }
             }
@@ -297,7 +309,7 @@ export class PlaylistTranscriptionService {
                             },
                         },
                         orderBy: { videoIndex: 'asc' },
-                        select: { id: true, youtubeId: true },
+                        select: { id: true, youtubeId: true, errorMessage: true },
                     },
                 },
             })
@@ -307,15 +319,22 @@ export class PlaylistTranscriptionService {
                 return { outcome: 'not_found' }
             }
 
-            if (playlist.transcriptions.length === 0) {
+            const retryable = playlist.transcriptions.filter(
+                (item) => !isRateLimitErrorMessage(item.errorMessage),
+            )
+
+            if (retryable.length === 0) {
                 processingPlaylists.delete(playlistId)
                 return {
                     outcome: 'rejected',
-                    message: 'Nenhum vídeo pendente para tentar novamente.',
+                    message:
+                        playlist.transcriptions.length > 0
+                            ? 'Vídeos bloqueados pelo limite do YouTube não podem ser tentados de novo.'
+                            : 'Nenhum vídeo pendente para tentar novamente.',
                 }
             }
 
-            const ids = playlist.transcriptions.map((item) => item.id)
+            const ids = retryable.map((item) => item.id)
 
             await prisma.playlist.update({
                 where: { id: playlistId },
@@ -336,7 +355,7 @@ export class PlaylistTranscriptionService {
                 },
             })
 
-            void this.finishFailedRetry(playlistId, playlist.transcriptions)
+            void this.finishFailedRetry(playlistId, retryable)
 
             return {
                 outcome: 'started',
@@ -382,8 +401,8 @@ export class PlaylistTranscriptionService {
         rows: TranscriptRow[],
     ): Promise<void> {
         try {
-            await this.transcribeRows(rows)
-            await this.refreshPlaylistSummary(playlistId)
+            const cancelledForRateLimit = await this.transcribeRows(rows)
+            await this.refreshPlaylistSummary(playlistId, cancelledForRateLimit)
         } catch (error) {
             await prisma.transcription.updateMany({
                 where: {
@@ -413,43 +432,42 @@ export class PlaylistTranscriptionService {
         }
     }
 
-    private async transcribeRows(rows: TranscriptRow[]): Promise<void> {
-        let lastWasRateLimited = false
-
+    private async transcribeRows(rows: TranscriptRow[]): Promise<boolean> {
         for (const [index, row] of rows.entries()) {
             if (index > 0) {
-                await sleep(
-                    lastWasRateLimited
-                        ? RATE_LIMIT_COOLDOWN_MS
-                        : INTER_VIDEO_DELAY_MS,
-                )
+                await sleep(INTER_VIDEO_DELAY_MS)
             }
 
-            const outcome = await this.applyTranscript(row.id, row.youtubeId, {
-                backoffMs: PLAYLIST_RATE_LIMIT_BACKOFF_MS,
-            })
-            lastWasRateLimited = outcome.rateLimited
+            const outcome = await this.applyTranscript(row.id, row.youtubeId)
+            if (!outcome.rateLimited) continue
+
+            const remainingIds = rows.slice(index + 1).map((item) => item.id)
+            if (remainingIds.length > 0) {
+                await prisma.transcription.updateMany({
+                    where: {
+                        id: { in: remainingIds },
+                        status: TranscriptionStatus.PROCESSING,
+                    },
+                    data: {
+                        status: TranscriptionStatus.ERROR,
+                        errorMessage: RATE_LIMIT_CANCELLED_MESSAGE,
+                        completedAt: new Date(),
+                    },
+                })
+            }
+
+            return true
         }
+
+        return false
     }
 
     private async applyTranscript(
         transcriptionId: string,
         youtubeId: string,
-        options?: { backoffMs?: number[] },
     ): Promise<{ rateLimited: boolean }> {
         try {
-            const result = await fetchTranscriptWithBackoff(youtubeId, {
-                backoffMs: options?.backoffMs,
-                onWait: async () => {
-                    await prisma.transcription.update({
-                        where: { id: transcriptionId },
-                        data: {
-                            errorMessage:
-                                'O YouTube limitou temporariamente o acesso às legendas. Tentando de novo em instantes.',
-                        },
-                    })
-                },
-            })
+            const result = await transcriptionService.getTranscriptById(youtubeId)
 
             if (result.success && result.raw_text) {
                 await prisma.transcription.update({
@@ -481,7 +499,9 @@ export class PlaylistTranscriptionService {
                 data: {
                     status: TranscriptionStatus.ERROR,
                     content: null,
-                    errorMessage: transcriptErrorMessage(result),
+                    errorMessage: rateLimited
+                        ? RATE_LIMIT_MESSAGE
+                        : transcriptErrorMessage(result),
                     completedAt: new Date(),
                 },
             })
@@ -501,7 +521,10 @@ export class PlaylistTranscriptionService {
         }
     }
 
-    private async refreshPlaylistSummary(playlistId: string): Promise<void> {
+    private async refreshPlaylistSummary(
+        playlistId: string,
+        cancelledForRateLimit = false,
+    ): Promise<void> {
         const transcriptions = await prisma.transcription.findMany({
             where: { playlistId },
             select: { status: true, wordCount: true },
@@ -544,10 +567,11 @@ export class PlaylistTranscriptionService {
                     failed > 0 && completed === 0
                         ? TranscriptionStatus.ERROR
                         : TranscriptionStatus.COMPLETED,
-                errorMessage:
-                    failed > 0
-                        ? `${failed} vídeos não puderam ser transcritos`
-                        : null,
+                errorMessage: cancelledForRateLimit
+                    ? RATE_LIMIT_MESSAGE
+                    : failed > 0
+                      ? `${failed} vídeos não puderam ser transcritos`
+                      : null,
                 totalWordCount,
                 completedAt: new Date(),
             },
@@ -562,7 +586,7 @@ export class PlaylistTranscriptionService {
                 transcriptions: {
                     where: { status: TranscriptionStatus.PROCESSING },
                     orderBy: { videoIndex: 'asc' },
-                    select: { id: true, youtubeId: true },
+                    select: { id: true, youtubeId: true, errorMessage: true },
                 },
             },
         })
@@ -572,6 +596,35 @@ export class PlaylistTranscriptionService {
 
             if (playlist.transcriptions.length === 0) {
                 await this.refreshPlaylistSummary(playlist.id)
+                continue
+            }
+
+            const blocked = playlist.transcriptions.filter((row) =>
+                isRateLimitErrorMessage(row.errorMessage),
+            )
+            if (blocked.length > 0) {
+                await prisma.transcription.updateMany({
+                    where: { id: { in: blocked.map((row) => row.id) } },
+                    data: {
+                        status: TranscriptionStatus.ERROR,
+                        errorMessage: RATE_LIMIT_MESSAGE,
+                        completedAt: new Date(),
+                    },
+                })
+                const pending = playlist.transcriptions.filter(
+                    (row) => !isRateLimitErrorMessage(row.errorMessage),
+                )
+                if (pending.length > 0) {
+                    await prisma.transcription.updateMany({
+                        where: { id: { in: pending.map((row) => row.id) } },
+                        data: {
+                            status: TranscriptionStatus.ERROR,
+                            errorMessage: RATE_LIMIT_CANCELLED_MESSAGE,
+                            completedAt: new Date(),
+                        },
+                    })
+                }
+                await this.refreshPlaylistSummary(playlist.id, true)
                 continue
             }
 
@@ -597,6 +650,7 @@ export class PlaylistTranscriptionService {
                         duration: true,
                         wordCount: true,
                         videoIndex: true,
+                        errorMessage: true,
                         createdAt: true,
                     },
                 },

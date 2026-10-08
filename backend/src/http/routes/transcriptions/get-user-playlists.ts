@@ -38,6 +38,7 @@ export async function getUserPlaylists(app: FastifyInstance) {
                                         duration: z.number().nullable(),
                                         wordCount: z.number().nullable(),
                                         videoIndex: z.number().nullable(),
+                                        errorMessage: z.string().nullable(),
                                         createdAt: z.string(),
                                     }),
                                 ),
@@ -97,6 +98,7 @@ export async function getUserPlaylists(app: FastifyInstance) {
                                 duration: transcription.duration,
                                 wordCount: transcription.wordCount,
                                 videoIndex: transcription.videoIndex,
+                                errorMessage: transcription.errorMessage,
                                 createdAt:
                                     transcription.createdAt.toISOString(),
                             }),
