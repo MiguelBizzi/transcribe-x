@@ -9,6 +9,7 @@ import { BadRequestError } from '../_errors/bad-request-error'
 import { getCurrentUser } from '../../middlewares/auth'
 import { qualityMetricsSchema } from './quality-metrics-schema'
 import { TranscriptionStatus, TranscriptionType } from '@/generated/prisma/client'
+import { transcriptErrorMessage } from '@/services/transcript-errors'
 
 export async function createVideoTranscription(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().post(
@@ -88,24 +89,35 @@ export async function createVideoTranscription(app: FastifyInstance) {
                     )
                 }
 
-                const {
-                    transcript,
-                    wordCount,
-                    language,
-                    timestamps,
-                    isGenerated,
-                } = await transcriptionService.getCleanTranscript(videoUrl)
+                const transcriptResult =
+                    await transcriptionService.getTranscriptById(videoDetails.id)
 
                 let status: TranscriptionStatus
                 let content: string | null = null
                 let errorMessage: string | null = null
+                let wordCount = 0
+                let language: string | undefined
+                let timestamps: Array<{
+                    text: string
+                    start: number
+                    duration: number
+                }> | null = transcriptResult.timestamps ?? null
+                let isGenerated = false
 
-                if (transcript && transcript.trim() !== '') {
+                if (
+                    transcriptResult.success &&
+                    transcriptResult.raw_text &&
+                    transcriptResult.raw_text.trim() !== ''
+                ) {
                     status = TranscriptionStatus.COMPLETED
-                    content = transcript
+                    content = transcriptResult.raw_text
+                    wordCount = transcriptResult.word_count || 0
+                    language = transcriptResult.language_code
+                    isGenerated = Boolean(transcriptResult.is_generated)
                 } else {
                     status = TranscriptionStatus.ERROR
-                    errorMessage = 'No transcript available for this video'
+                    errorMessage = transcriptErrorMessage(transcriptResult)
+                    timestamps = null
                 }
 
                 const transcription = await prisma.transcription.create({

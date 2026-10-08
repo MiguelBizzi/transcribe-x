@@ -14,6 +14,7 @@ import type { TranscriptionDetail } from '@/app/dashboard/transcribe/data/types'
 import { formatDateShort } from '@/utils/format-date'
 import { formatDuration } from '@/utils/format-duration'
 import { formatStatus, formatTranscriptionType } from '@/utils/format-status'
+import { RetryTranscriptionButton } from '@/app/dashboard/transcribe/components/retry-transcription-button'
 
 interface TranscriptionHeroProps {
   transcription: TranscriptionDetail
@@ -65,6 +66,15 @@ export function TranscriptionHero({ transcription }: TranscriptionHeroProps) {
               <Badge variant="secondary">Processado</Badge>
             )}
           </div>
+          {transcription.status.toUpperCase() === 'ERROR' &&
+            transcription.errorMessage && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {transcription.errorMessage}
+              </p>
+            )}
+          {transcription.status.toUpperCase() === 'ERROR' && (
+            <RetryTranscriptionButton id={transcription.id} />
+          )}
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
             {transcription.title}
           </h1>

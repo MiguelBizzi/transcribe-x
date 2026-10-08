@@ -1,21 +1,21 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Button } from '@/components/ui/button'
 import { CheckCircle, RefreshCw, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getTranscriptions } from '../data/transcriptions'
 import { TranscriptionJobActions } from './transcription-job-actions'
 import { PlaylistJobsAccordion } from './playlist-jobs-accordion'
-import { formatStatus } from '@/utils/format-status'
+import { RetryTranscriptionButton } from './retry-transcription-button'
+import { ProcessingRefresher } from '@/app/dashboard/components/processing-refresher'
+import { formatPlaylistStatus, formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
 import type { Transcription } from '../data/types'
 
 const getStatusIconSafe = (status: string) => {
-  switch (status) {
-    case 'pending':
+  switch (status.toUpperCase()) {
+    case 'PENDING':
       return <Clock className="text-muted-foreground h-4 w-4" />
-    case 'processing':
+    case 'PROCESSING':
       return <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
     case 'COMPLETED':
       return <CheckCircle className="h-4 w-4 text-green-500" />
@@ -27,10 +27,10 @@ const getStatusIconSafe = (status: string) => {
 }
 
 const getStatusColorSafe = (status: string): string => {
-  switch (status) {
-    case 'pending':
+  switch (status.toUpperCase()) {
+    case 'PENDING':
       return 'bg-muted/50 text-muted-foreground'
-    case 'processing':
+    case 'PROCESSING':
       return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
     case 'COMPLETED':
       return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
@@ -48,6 +48,8 @@ type JobGroup =
       playlistId: string
       title: string
       thumbnail: string | null
+      videoCount: number
+      status: string
       videos: Transcription[]
     }
 
@@ -88,6 +90,8 @@ function groupTranscriptionJobs(
       playlistId,
       title: playlist.title,
       thumbnail: playlist.thumbnail ?? videos[0]?.thumbnail ?? null,
+      videoCount: playlist.videoCount,
+      status: playlist.status,
       videos,
     })
   }
@@ -137,39 +141,30 @@ function TranscriptionJobCard({
                 <p className="text-muted-foreground truncate text-sm">
                   {transcription.youtubeId}
                 </p>
+                {transcription.status.toUpperCase() === 'ERROR' &&
+                  transcription.errorMessage && (
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      {transcription.errorMessage}
+                    </p>
+                  )}
               </div>
               <Badge className={getStatusColorSafe(transcription.status)}>
                 {formatStatus(transcription.status)}
               </Badge>
             </div>
-
-            {transcription.status === 'processing' && (
-              <div className="w-full space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Processando...</span>
-                  <span>50%</span>
-                </div>
-                <Progress value={50} className="h-2" />
-                <p className="text-muted-foreground text-xs">
-                  Tempo estimado: processando...
-                </p>
-              </div>
-            )}
           </div>
         </Link>
       </div>
 
       <div className="flex w-full items-center gap-2 pt-4">
-        {transcription.status === 'COMPLETED' && (
+        {transcription.status.toUpperCase() === 'COMPLETED' && (
           <TranscriptionJobActions transcription={transcription} />
         )}
 
-        {transcription.status === 'ERROR' && (
-          <Button variant="outline" size="sm" className="text-xs">
-            <RefreshCw className="mr-1 h-3 w-3" />
-            Tentar novamente
-          </Button>
-        )}
+        {transcription.status.toUpperCase() === 'ERROR' &&
+          transcription.playlist?.status.toUpperCase() !== 'PROCESSING' && (
+            <RetryTranscriptionButton id={transcription.id} />
+          )}
       </div>
     </div>
   )
@@ -198,11 +193,18 @@ export async function TranscriptionJobs() {
     }
 
     const completedCount = transcriptions.filter(
-      (t) => t.status === 'COMPLETED',
+      (t) => t.status.toUpperCase() === 'COMPLETED',
     ).length
     const jobGroups = groupTranscriptionJobs(transcriptions)
+    const processing = transcriptions.some(
+      (transcription) =>
+        transcription.status.toUpperCase() === 'PROCESSING' ||
+        transcription.playlist?.status.toUpperCase() === 'PROCESSING',
+    )
 
     return (
+      <>
+      <ProcessingRefresher active={processing} />
       <Card className="hover:shadow-elegant transition-all duration-300">
         <CardContent className="pt-6">
           <div className="mb-6 flex w-full items-center justify-between">
@@ -224,17 +226,30 @@ export async function TranscriptionJobs() {
               }
 
               const playlistCompleted = group.videos.filter(
-                (video) => video.status === 'COMPLETED',
+                (video) => video.status.toUpperCase() === 'COMPLETED',
+              ).length
+              const playlistFailed = group.videos.filter(
+                (video) => video.status.toUpperCase() === 'ERROR',
+              ).length
+              const playlistProcessing = group.videos.filter(
+                (video) => video.status.toUpperCase() === 'PROCESSING',
               ).length
 
               return (
                 <PlaylistJobsAccordion
                   key={group.playlistId}
+                  playlistId={group.playlistId}
                   title={group.title}
                   thumbnail={group.thumbnail}
                   playlistHref={`/dashboard/playlists/${group.playlistId}`}
-                  videoCount={group.videos.length}
+                  videoCount={group.videoCount}
                   completedCount={playlistCompleted}
+                  failedCount={playlistFailed}
+                  processingCount={playlistProcessing}
+                  statusLabel={formatPlaylistStatus(
+                    group.status,
+                    playlistFailed,
+                  )}
                 >
                   {group.videos.map((video) => (
                     <TranscriptionJobCard
@@ -249,6 +264,7 @@ export async function TranscriptionJobs() {
           </div>
         </CardContent>
       </Card>
+      </>
     )
   } catch (error) {
     return (

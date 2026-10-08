@@ -132,6 +132,40 @@ def test_processing_keeps_function_words():
     assert comma.startswith("Não, sim")
 
 
+def test_generated_spellcheck_preserves_unknown_words():
+    samples = {
+        "com foco em frontend é claro que a gente vai construir a interface completa hoje.": (
+            "frontend",
+        ),
+        "Então bora lá desde a era das cavernas até o momento atual da tecnologia.": (
+            "bora",
+        ),
+        "O dataset de react e javascript ficou pronto para o fine tuning.": (
+            "dataset",
+            "react",
+            "javascript",
+        ),
+    }
+    for sample, words in samples.items():
+        processed = process_text(sample, "pt", True)["processedText"].lower()
+        for word in words:
+            assert word in processed.split()
+
+
+def test_generated_spellcheck_restores_accents_without_rewriting():
+    sample = (
+        "Hoje voce nao precisa da transcricao completa para entender o pipeline."
+    )
+    processed = process_text(sample, "pt", True)["processedText"]
+    words = processed.lower().split()
+    assert "você" in words
+    assert "não" in words
+    assert "transcrição" in words
+    assert "voce" not in words
+    assert "nao" not in words
+    assert "transcricao" not in words
+
+
 # Passages stay inside the 8–25 word fluency band after cleanup. The two
 # shortest artifact samples fall below 8 words once fillers are removed, so
 # the fluency term would punish length rather than dirtiness.

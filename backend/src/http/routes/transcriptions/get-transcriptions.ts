@@ -39,6 +39,7 @@ export async function getTranscriptions(app: FastifyInstance) {
                                 playlistId: z.string().nullable(),
                                 isPlaylistVideo: z.boolean(),
                                 videoIndex: z.number().nullable(),
+                                errorMessage: z.string().nullable(),
                                 playlist: z
                                     .object({
                                         id: z.string(),
@@ -80,6 +81,7 @@ export async function getTranscriptions(app: FastifyInstance) {
                     playlistId: true,
                     isPlaylistVideo: true,
                     videoIndex: true,
+                    errorMessage: true,
                     playlist: {
                         select: {
                             id: true,
@@ -109,6 +111,7 @@ export async function getTranscriptions(app: FastifyInstance) {
                     playlistId: transcription.playlistId,
                     isPlaylistVideo: transcription.isPlaylistVideo,
                     videoIndex: transcription.videoIndex,
+                    errorMessage: transcription.errorMessage,
                     playlist: transcription.playlist,
                 })),
                 total: transcriptions.length,

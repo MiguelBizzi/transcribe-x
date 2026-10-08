@@ -16,7 +16,10 @@ import {
   deduplicatePlaylistAction,
 } from '@/app/dashboard/transcribe/data/actions'
 import { getExportFormats } from '@/app/dashboard/transcribe/data/utils'
-import { downloadFineTuningDataset } from '@/app/dashboard/transcribe/data/download-dataset'
+import {
+  downloadFineTuningDataset,
+  formatDatasetDownloadMessage,
+} from '@/app/dashboard/transcribe/data/download-dataset'
 
 interface PlaylistCurationPanelProps {
   playlist: PlaylistDetail
@@ -53,15 +56,17 @@ export function PlaylistCurationPanel({
     recordCount: number
     skippedDuplicates: number
     skippedDiscarded: number
+    skippedFailed: number
   } | null>(null)
   const discardedCount = videos.filter(
     (video) => video.llmCurationData?.recommendation === 'discard',
   ).length
-  const previewSkippedDuplicates = duplicateCount
+  const previewSkippedFailed = videos.filter(
+    (video) => video.status === 'ERROR',
+  ).length
   const previewSkippedDiscarded = dataset === 'curated' ? discardedCount : 0
   const previewRecordCount = videos.filter((video) => {
     if (video.status !== 'COMPLETED') return false
-    if (video.deduplicationStatus === 'duplicate') return false
     if (
       dataset === 'curated' &&
       video.llmCurationData?.recommendation === 'discard'
@@ -69,7 +74,11 @@ export function PlaylistCurationPanel({
       return false
     }
     if (dataset === 'curated' && video.llmCurationScore == null) return false
-    return true
+    const text =
+      dataset === 'raw'
+        ? video.content
+        : video.processedContent || video.content
+    return Boolean(text?.trim())
   }).length
 
   const handleDeduplicate = async () => {
@@ -86,7 +95,7 @@ export function PlaylistCurationPanel({
       }
 
       toast.success(
-        `${result.data.duplicateCount} duplicatas marcadas, ${result.data.keptCount} mantidas. Os vídeos continuam no banco e saem do export por padrão.`,
+        `${result.data.duplicateCount} duplicatas marcadas, ${result.data.keptCount} mantidas. Os vídeos continuam no banco e entram no dataset da playlist.`,
       )
       router.refresh()
     } catch (error) {
@@ -146,10 +155,10 @@ export function PlaylistCurationPanel({
         playlistId: playlist.id,
         dataset,
         format,
-        includeDuplicates: false,
+        includeDuplicates: true,
       })
       setLastExportCounts(counts)
-      toast.success(`${counts.recordCount} exemplos exportados`)
+      toast.success(formatDatasetDownloadMessage(counts))
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -191,7 +200,7 @@ export function PlaylistCurationPanel({
         <div className="flex flex-col gap-3">
           <p className="text-muted-foreground text-sm">
             {duplicateCount > 0
-              ? `${duplicateCount} vídeos marcados como duplicata. Eles permanecem no banco e saem do dataset por padrão.`
+              ? `${duplicateCount} vídeos marcados como duplicata. Eles permanecem no banco e entram no dataset consolidado, como no download de cada vídeo.`
               : 'Marque duplicatas da playlist antes de exportar o dataset.'}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -269,13 +278,13 @@ export function PlaylistCurationPanel({
           </div>
           <p className="text-muted-foreground text-xs">
             Antes do download: {previewRecordCount} registros,{' '}
-            {previewSkippedDuplicates} duplicatas omitidas,{' '}
+            {previewSkippedFailed} vídeos com falha omitidos,{' '}
             {previewSkippedDiscarded} descartes omitidos.
           </p>
           {lastExportCounts && (
             <p className="text-muted-foreground text-xs">
               Último export: {lastExportCounts.recordCount} registros,{' '}
-              {lastExportCounts.skippedDuplicates} duplicatas omitidas,{' '}
+              {lastExportCounts.skippedFailed} vídeos com falha omitidos,{' '}
               {lastExportCounts.skippedDiscarded} descartes omitidos.
             </p>
           )}

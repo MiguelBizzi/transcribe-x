@@ -309,7 +309,7 @@ O processador recebe `{ text, language_code, is_generated }` e devolve `{ proces
    O conjunto da língua detectada é unido ao inglês, para cobrir mistura de código.
 
 4. **Colapso de repetições.** Detecta n-gramas imediatos de tamanho 3, 2 e 1 (`"vamos vamos vamos"` → `"vamos"`). Conta tokens removidos.
-5. **Correção ortográfica condicional.** `pyspellchecker` só se `is_generated = true`, língua em `{en, es, fr, pt, de}` e texto ≤ 2.500 palavras. Tokens curtos (< 4 letras) e não alfabéticos são ignorados; a capitalização é preservada.
+5. **Correção ortográfica condicional.** `pyspellchecker` só se `is_generated = true`, língua em `{en, es, fr, pt, de}` e texto ≤ 2.500 palavras. Tokens com menos de 3 letras e não alfabéticos são ignorados; a capitalização é preservada. A sugestão só entra quando a sequência de letras é a mesma — o corretor restaura acentos (`nao` → `não`, `voce` → `você`) e não troca a palavra por um vizinho de edição. Termos fora do dicionário ficam como foram falados (`frontend`, `bora`).
 6. **Limpeza residual.** Roda depois do corretor e antes da normalização, porque a remoção de hesitações apaga o token e deixa a pontuação em volta (`né,` vira uma vírgula solta) e porque o corretor não mexe em tokens de uma letra (`q`, `x`).
    - Vírgula que não está entre duas palavras: vírgula inicial, `,,` e vírgula imediatamente antes de `.!?;:`.
    - Letra isolada que não é palavra funcional da língua detectada. Listas: português `a à e é o ó`; inglês `a i`; espanhol `a e o y`. Língua fora dessa lista usa a união das três, para não apagar uma palavra funcional quando a detecção falha.

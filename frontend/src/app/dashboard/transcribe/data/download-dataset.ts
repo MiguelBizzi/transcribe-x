@@ -26,6 +26,7 @@ export async function downloadFineTuningDataset(input: {
   recordCount: number
   skippedDuplicates: number
   skippedDiscarded: number
+  skippedFailed: number
 }> {
   const result = await exportFineTuningAction(input)
 
@@ -59,5 +60,16 @@ export async function downloadFineTuningDataset(input: {
     recordCount: result.data.recordCount,
     skippedDuplicates: result.data.skippedDuplicates,
     skippedDiscarded: result.data.skippedDiscarded,
+    skippedFailed: result.data.skippedFailed,
   }
+}
+
+export function formatDatasetDownloadMessage(counts: {
+  recordCount: number
+  skippedFailed: number
+}): string {
+  if (counts.skippedFailed > 0) {
+    return `${counts.recordCount} registros exportados. ${counts.skippedFailed} omitidos por falha.`
+  }
+  return `${counts.recordCount} registros exportados`
 }

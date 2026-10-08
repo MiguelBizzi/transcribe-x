@@ -11,7 +11,7 @@ import {
   formatQualityScore,
   getQualityTone,
 } from '@/utils/format-duration'
-import { formatStatus } from '@/utils/format-status'
+import { formatPlaylistStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
 import { PlaylistCurationPanel } from './components/playlist-curation-panel'
 import { PlaylistVideoList } from './components/playlist-video-list'
@@ -50,6 +50,22 @@ export default async function PlaylistDetailPage({
       .map((video) => video.qualityMetrics?.qualityScore)
       .filter((score): score is number => typeof score === 'number'),
   )
+  const completedCount = playlist.transcriptions.filter(
+    (video) => video.status.toUpperCase() === 'COMPLETED',
+  ).length
+  const failedCount = playlist.transcriptions.filter(
+    (video) => video.status.toUpperCase() === 'ERROR',
+  ).length
+  const processingCount = playlist.transcriptions.filter(
+    (video) => video.status.toUpperCase() === 'PROCESSING',
+  ).length
+  const settledCount = completedCount + failedCount
+  const progress =
+    playlist.videoCount > 0
+      ? Math.round((settledCount / playlist.videoCount) * 100)
+      : 0
+  const playlistProcessing =
+    playlist.status.toUpperCase() === 'PROCESSING' || processingCount > 0
   const youtubeUrl = `https://www.youtube.com/playlist?list=${playlist.youtubeId}`
 
   return (
@@ -81,7 +97,9 @@ export default async function PlaylistDetailPage({
 
         <div className="flex min-w-0 flex-1 flex-col justify-between gap-4">
           <div className="space-y-3">
-            <Badge variant="outline">{formatStatus(playlist.status)}</Badge>
+            <Badge variant="outline">
+              {formatPlaylistStatus(playlist.status, failedCount)}
+            </Badge>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
               {playlist.title}
             </h1>
@@ -98,6 +116,21 @@ export default async function PlaylistDetailPage({
                 {formatDuration(playlist.totalDuration)}
               </span>
               <span>{formatDateShort(playlist.createdAt)}</span>
+            </div>
+            <div className="max-w-md space-y-2">
+              <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                <span>{completedCount} concluídos</span>
+                <span>{processingCount} processando</span>
+                <span>{failedCount} com erro</span>
+              </div>
+              {playlistProcessing && (
+                <Progress value={progress} className="h-2" />
+              )}
+              {playlist.errorMessage && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {playlist.errorMessage}
+                </p>
+              )}
             </div>
             {avgScore !== null && (
               <div className="max-w-sm space-y-2">
@@ -122,10 +155,14 @@ export default async function PlaylistDetailPage({
         </div>
       </div>
 
-      <ProcessingRefresher active={playlist.status === 'PROCESSING'} />
+      <ProcessingRefresher active={playlistProcessing} />
 
       <PlaylistCurationPanel playlist={playlist} />
-      <PlaylistVideoList videos={playlist.transcriptions} />
+      <PlaylistVideoList
+        playlistId={playlist.id}
+        videos={playlist.transcriptions}
+        processing={playlistProcessing}
+      />
     </div>
   )
 }

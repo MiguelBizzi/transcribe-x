@@ -5,22 +5,31 @@ import Link from 'next/link'
 import { ChevronDown, PlaySquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { RetryFailedPlaylistButton } from './retry-failed-playlist-button'
 
 interface PlaylistJobsAccordionProps {
+  playlistId: string
   title: string
   thumbnail: string | null
   playlistHref: string
   videoCount: number
   completedCount: number
+  failedCount: number
+  processingCount: number
+  statusLabel: string
   children: React.ReactNode
 }
 
 export function PlaylistJobsAccordion({
+  playlistId,
   title,
   thumbnail,
   playlistHref,
   videoCount,
   completedCount,
+  failedCount,
+  processingCount,
+  statusLabel,
   children,
 }: PlaylistJobsAccordionProps) {
   const [open, setOpen] = useState(false)
@@ -63,11 +72,22 @@ export function PlaylistJobsAccordion({
           <p className="text-muted-foreground text-sm">
             {videoCount} {videoCount === 1 ? 'vídeo' : 'vídeos'}
           </p>
+          {(processingCount > 0 || failedCount > 0) && (
+            <p className="text-muted-foreground text-xs">
+              {completedCount} concluídos · {processingCount} processando ·{' '}
+              {failedCount} com erro
+            </p>
+          )}
         </div>
 
-        <Badge variant="outline" className="mt-1 shrink-0 text-xs">
-          {completedCount} / {videoCount} concluídos
-        </Badge>
+        <div className="mt-1 flex shrink-0 flex-col items-end gap-1">
+          <Badge variant="outline" className="text-xs">
+            {statusLabel}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            {completedCount} / {videoCount} concluídos
+          </Badge>
+        </div>
 
         <ChevronDown
           className={cn(
@@ -79,7 +99,10 @@ export function PlaylistJobsAccordion({
 
       {open && (
         <div className="space-y-3 border-t px-4 py-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
+            {failedCount > 0 && statusLabel !== 'Processando' && (
+              <RetryFailedPlaylistButton playlistId={playlistId} />
+            )}
             <Link
               href={playlistHref}
               className="text-primary text-xs font-medium hover:underline"

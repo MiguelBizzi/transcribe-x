@@ -485,13 +485,17 @@ def maybe_spellcheck(text: str, language: str, is_generated: bool) -> str:
 
     def replace(match: re.Match[str]) -> str:
         token = match.group(0)
-        if not token.isalpha() or len(token) < 4:
+        if not token.isalpha() or len(token) < 3:
             return token
         lowered = token.lower()
         if lowered in checker:
             return token
         correction = checker.correction(lowered)
         if not correction or correction == lowered:
+            return token
+        # Nearest-neighbor edits rewrite unknown words (frontend → fronte).
+        # Only restore accents when the letter sequence is unchanged.
+        if _fold_token(correction) != _fold_token(token):
             return token
         if token[0].isupper():
             return correction.capitalize()

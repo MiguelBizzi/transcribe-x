@@ -8,7 +8,10 @@ import { type DatasetFormat, PlaylistJob } from '../data/types'
 import { furthestPlaylistStage, getExportFormats } from '../data/utils'
 import { fetchPlaylistForExport } from '../data/actions'
 import { playlistCopyText } from '../data/export-transcript'
-import { downloadFineTuningDataset } from '../data/download-dataset'
+import {
+  downloadFineTuningDataset,
+  formatDatasetDownloadMessage,
+} from '../data/download-dataset'
 
 interface PlaylistJobActionsProps {
   playlist: PlaylistJob
@@ -21,14 +24,14 @@ export function PlaylistJobActions({ playlist }: PlaylistJobActionsProps) {
     setPendingAction(format)
     try {
       const detail = await fetchPlaylistForExport(playlist.id)
-      await downloadFineTuningDataset({
+      const counts = await downloadFineTuningDataset({
         scope: 'playlist',
         playlistId: playlist.id,
         dataset: furthestPlaylistStage(detail.transcriptions),
         format,
-        includeDuplicates: false,
+        includeDuplicates: true,
       })
-      toast.success(`${format.toUpperCase()} baixado`)
+      toast.success(formatDatasetDownloadMessage(counts))
     } catch (error) {
       toast.error(
         error instanceof Error

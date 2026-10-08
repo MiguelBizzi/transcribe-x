@@ -325,6 +325,7 @@ export const exportFineTuningAction = actionClient
         recordCount: number
         skippedDuplicates: number
         skippedDiscarded: number
+        skippedFailed: number
         content: string
       }>(`/exports/fine-tuning?${params.toString()}`)
 
@@ -335,6 +336,7 @@ export const exportFineTuningAction = actionClient
         recordCount: response.recordCount,
         skippedDuplicates: response.skippedDuplicates,
         skippedDiscarded: response.skippedDiscarded,
+        skippedFailed: response.skippedFailed,
         content: response.content,
       }
     } catch (error) {
@@ -344,6 +346,82 @@ export const exportFineTuningAction = actionClient
           error instanceof Error
             ? error.message
             : 'Falha ao exportar o dataset de fine-tuning',
+      }
+    }
+  })
+
+const retryTranscriptionSchema = z.object({
+  id: z.string().uuid('ID da transcrição inválido'),
+})
+
+export const retryTranscriptionAction = actionClient
+  .inputSchema(retryTranscriptionSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        transcriptionId: string
+        playlistId: string | null
+        status: string
+      }>(`/transcriptions/${id}/retry`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/transcriptions/${id}`)
+      revalidatePath('/dashboard/transcribe')
+      revalidatePath('/dashboard')
+      if (response.playlistId) {
+        revalidatePath(`/dashboard/playlists/${response.playlistId}`)
+      }
+
+      return {
+        success: true as const,
+        message: response.message,
+        playlistId: response.playlistId,
+      }
+    } catch (error) {
+      return {
+        success: false as const,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao tentar novamente a transcrição',
+      }
+    }
+  })
+
+const retryFailedPlaylistSchema = z.object({
+  id: z.string().uuid('ID da playlist inválido'),
+})
+
+export const retryFailedPlaylistAction = actionClient
+  .inputSchema(retryFailedPlaylistSchema)
+  .action(async ({ parsedInput: { id } }) => {
+    try {
+      const response = await apiFetch<{
+        message: string
+        playlistId: string
+        retried: number
+      }>(`/transcriptions/playlists/${id}/retry-failed`, {
+        method: 'POST',
+      })
+
+      revalidatePath(`/dashboard/playlists/${id}`)
+      revalidatePath('/dashboard/transcribe')
+      revalidatePath('/dashboard')
+
+      return {
+        success: true as const,
+        message: response.message,
+        retried: response.retried,
+      }
+    } catch (error) {
+      return {
+        success: false as const,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao tentar novamente os vídeos com erro',
       }
     }
   })

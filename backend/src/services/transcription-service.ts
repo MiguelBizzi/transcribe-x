@@ -70,9 +70,14 @@ export class TranscriptionService {
         videoId: string,
     ): Promise<TranscriptResult> {
         return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-                reject(new Error('Python script execution timeout'))
-            }, this.timeout)
+            let settled = false
+            let timeoutId: ReturnType<typeof setTimeout> | undefined
+            const finish = (callback: () => void) => {
+                if (settled) return
+                settled = true
+                if (timeoutId) clearTimeout(timeoutId)
+                callback()
+            }
 
             const pythonProcess = spawn(
                 this.pythonPath,
@@ -82,6 +87,13 @@ export class TranscriptionService {
                     cwd: process.cwd(),
                 },
             )
+
+            timeoutId = setTimeout(() => {
+                pythonProcess.kill('SIGKILL')
+                finish(() =>
+                    reject(new Error('Python script execution timeout')),
+                )
+            }, this.timeout)
 
             let stdout = ''
             let stderr = ''
@@ -95,34 +107,35 @@ export class TranscriptionService {
             })
 
             pythonProcess.on('close', (code) => {
-                clearTimeout(timeoutId)
+                finish(() => {
+                    if (code !== 0 && code !== 1) {
+                        reject(
+                            new Error(
+                                `Python script failed with code ${code}: ${stderr}`,
+                            ),
+                        )
+                        return
+                    }
 
-                if (code !== 0 && code !== 1) {
-                    reject(
-                        new Error(
-                            `Python script failed with code ${code}: ${stderr}`,
-                        ),
-                    )
-                    return
-                }
-
-                try {
-                    const result = JSON.parse(stdout) as TranscriptResult
-                    resolve(result)
-                } catch (_parseError) {
-                    reject(
-                        new Error(
-                            `Failed to parse Python script output: ${stdout}\nStderr: ${stderr}`,
-                        ),
-                    )
-                }
+                    try {
+                        const result = JSON.parse(stdout) as TranscriptResult
+                        resolve(result)
+                    } catch (_parseError) {
+                        reject(
+                            new Error(
+                                `Failed to parse Python script output: ${stdout}\nStderr: ${stderr}`,
+                            ),
+                        )
+                    }
+                })
             })
 
             pythonProcess.on('error', (error) => {
-                clearTimeout(timeoutId)
-                reject(
-                    new Error(
-                        `Failed to execute Python script: ${error.message}`,
+                finish(() =>
+                    reject(
+                        new Error(
+                            `Failed to execute Python script: ${error.message}`,
+                        ),
                     ),
                 )
             })

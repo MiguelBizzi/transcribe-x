@@ -1,7 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Button } from '@/components/ui/button'
 import {
   CheckCircle,
   RefreshCw,
@@ -13,7 +12,8 @@ import {
 import { getPlaylistTranscriptions } from '../data/playlist-transcriptions'
 import { PlaylistJobActions } from './playlist-job-actions'
 import Link from 'next/link'
-import { formatStatus } from '@/utils/format-status'
+import { formatPlaylistStatus } from '@/utils/format-status'
+import { RetryFailedPlaylistButton } from './retry-failed-playlist-button'
 
 const getStatusIconSafe = (status: string) => {
   switch (status.toUpperCase()) {
@@ -82,7 +82,12 @@ export async function PlaylistTranscriptionJobs() {
       )
     }
 
-    const completedCount = playlists.filter((p) => isCompleted(p.status)).length
+    const completedCount = playlists.filter((playlist) => {
+      const hasFailure = playlist.transcriptions?.some(
+        (video) => video.status.toUpperCase() === 'ERROR',
+      )
+      return isCompleted(playlist.status) && !hasFailure
+    }).length
 
     return (
       <Card className="hover:shadow-elegant transition-all duration-300">
@@ -98,7 +103,23 @@ export async function PlaylistTranscriptionJobs() {
           </div>
 
           <div className="grid w-full gap-4">
-            {playlists.map((playlist) => (
+            {playlists.map((playlist) => {
+              const videos = playlist.transcriptions ?? []
+              const completedVideos = videos.filter(
+                (video) => video.status.toUpperCase() === 'COMPLETED',
+              ).length
+              const failedVideos = videos.filter(
+                (video) => video.status.toUpperCase() === 'ERROR',
+              ).length
+              const processingVideos = videos.filter(
+                (video) => video.status.toUpperCase() === 'PROCESSING',
+              ).length
+              const showDownloads =
+                videos.length === 0
+                  ? isCompleted(playlist.status)
+                  : completedVideos > 0
+
+              return (
               <div
                 key={playlist.id}
                 className="bg-muted/30 hover:bg-muted/50 w-full rounded-lg p-6 transition-colors"
@@ -131,44 +152,59 @@ export async function PlaylistTranscriptionJobs() {
                             </span>
                           </div>
                         </div>
-                        <Badge className={getStatusColorSafe(playlist.status)}>
-                          {formatStatus(playlist.status)}
+                        <Badge
+                          className={
+                            failedVideos > 0 && isCompleted(playlist.status)
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                              : getStatusColorSafe(playlist.status)
+                          }
+                        >
+                          {formatPlaylistStatus(playlist.status, failedVideos)}
                         </Badge>
                       </div>
 
-                      {isProcessing(playlist.status) && (
+                      {(isProcessing(playlist.status) || failedVideos > 0) && (
                         <div className="w-full space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Processando playlist...</span>
-                            <span>{playlist.progress ?? 0}%</span>
-                          </div>
-                          <Progress
-                            value={playlist.progress ?? 0}
-                            className="h-2"
-                          />
+                          {isProcessing(playlist.status) && (
+                            <div className="flex justify-between text-sm">
+                              <span>Processando playlist...</span>
+                              <span>{playlist.progress ?? 0}%</span>
+                            </div>
+                          )}
+                          {isProcessing(playlist.status) && (
+                            <Progress
+                              value={playlist.progress ?? 0}
+                              className="h-2"
+                            />
+                          )}
                           <p className="text-muted-foreground text-xs">
-                            Processando {playlist.videoCount} vídeos...
+                            {completedVideos} concluídos · {processingVideos}{' '}
+                            processando · {failedVideos} com erro
                           </p>
+                          {playlist.errorMessage && (
+                            <p className="text-xs text-red-600 dark:text-red-400">
+                              {playlist.errorMessage}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
                   </Link>
                 </div>
 
-                <div className="flex w-full items-center gap-2 pt-4">
-                  {isCompleted(playlist.status) && (
+                <div className="flex w-full flex-wrap items-center gap-2 pt-4">
+                  {showDownloads && (
                     <PlaylistJobActions playlist={playlist} />
                   )}
 
-                  {isError(playlist.status) && (
-                    <Button variant="outline" size="sm" className="text-xs">
-                      <RefreshCw className="mr-1 h-3 w-3" />
-                      Tentar novamente
-                    </Button>
-                  )}
+                  {(failedVideos > 0 || isError(playlist.status)) &&
+                    !isProcessing(playlist.status) && (
+                      <RetryFailedPlaylistButton playlistId={playlist.id} />
+                    )}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>

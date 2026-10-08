@@ -47,6 +47,7 @@ export class FineTuningExportService {
         recordCount: number
         skippedDuplicates: number
         skippedDiscarded: number
+        skippedFailed: number
         content: string
     }> {
         const includeDuplicates = Boolean(query.includeDuplicates)
@@ -86,14 +87,21 @@ export class FineTuningExportService {
                 llmCurationData: true,
                 deduplicationStatus: true,
                 dedupGroupId: true,
+                status: true,
             },
         })
 
         let skippedDuplicates = 0
         let skippedDiscarded = 0
+        let skippedFailed = 0
         const records: DatasetRecord[] = []
 
         for (const transcription of transcriptions) {
+            if (transcription.status === 'ERROR') {
+                skippedFailed += 1
+                continue
+            }
+
             if (
                 !includeDuplicates &&
                 transcription.deduplicationStatus === 'duplicate'
@@ -115,6 +123,7 @@ export class FineTuningExportService {
 
             const text = resolveText(query.dataset, transcription)
             if (!text) {
+                skippedFailed += 1
                 continue
             }
 
@@ -159,6 +168,7 @@ export class FineTuningExportService {
             recordCount: records.length,
             skippedDuplicates,
             skippedDiscarded,
+            skippedFailed,
             content: serialized.content,
         }
     }

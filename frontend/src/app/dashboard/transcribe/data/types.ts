@@ -70,6 +70,7 @@ export interface Transcription {
   playlistId?: string | null
   isPlaylistVideo?: boolean
   videoIndex?: number | null
+  errorMessage?: string | null
   playlist?: TranscriptionPlaylistSummary | null
 }
 
@@ -160,9 +161,14 @@ export interface PlaylistJob {
   title: string
   videoCount: number
   status: string
+  errorMessage?: string | null
   progress?: number
   totalDuration: number | null
   createdAt: string
+  transcriptions?: Array<{
+    id: string
+    status: string
+  }>
 }
 
 export interface PlaylistVideoTranscription {
@@ -196,6 +202,7 @@ export interface PlaylistDetail {
   thumbnail: string | null
   videoCount: number
   status: string
+  errorMessage: string | null
   totalDuration: number | null
   totalWordCount: number | null
   createdAt: string

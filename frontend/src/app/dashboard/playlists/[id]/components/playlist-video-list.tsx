@@ -2,20 +2,27 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle, Download, Loader2, Video, XCircle } from 'lucide-react'
+import { CheckCircle, Download, Loader2, RefreshCw, Video, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { PlaylistVideoTranscription } from '@/app/dashboard/transcribe/data/types'
-import { furthestDatasetStage } from '@/app/dashboard/transcribe/data/utils'
+import type {
+  DatasetFormat,
+  PlaylistVideoTranscription,
+} from '@/app/dashboard/transcribe/data/types'
+import { furthestDatasetStage, getExportFormats } from '@/app/dashboard/transcribe/data/utils'
 import { downloadFineTuningDataset } from '@/app/dashboard/transcribe/data/download-dataset'
+import { RetryFailedPlaylistButton } from '@/app/dashboard/transcribe/components/retry-failed-playlist-button'
+import { RetryTranscriptionButton } from '@/app/dashboard/transcribe/components/retry-transcription-button'
 import { formatQualityScore, getQualityTone } from '@/utils/format-duration'
 import { formatStatus } from '@/utils/format-status'
 import { cn } from '@/lib/utils'
 
 interface PlaylistVideoListProps {
+  playlistId: string
   videos: PlaylistVideoTranscription[]
+  processing?: boolean
 }
 
 function statusIcon(status: string) {
@@ -25,7 +32,7 @@ function statusIcon(status: string) {
   if (status.toUpperCase() === 'ERROR') {
     return <XCircle className="h-4 w-4 text-red-500" />
   }
-  return null
+  return <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
 }
 
 function scoreClass(score: number) {
@@ -35,11 +42,25 @@ function scoreClass(score: number) {
   return 'text-red-600 dark:text-red-400'
 }
 
-export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
-  const [pendingId, setPendingId] = useState<string | null>(null)
+export function PlaylistVideoList({
+  playlistId,
+  videos,
+  processing = false,
+}: PlaylistVideoListProps) {
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const failedCount = videos.filter(
+    (video) => video.status.toUpperCase() === 'ERROR',
+  ).length
+  const currentProcessingId = videos.find(
+    (video) => video.status.toUpperCase() === 'PROCESSING',
+  )?.id
 
-  const handleDownload = async (video: PlaylistVideoTranscription) => {
-    setPendingId(video.id)
+  const handleDownload = async (
+    video: PlaylistVideoTranscription,
+    format: DatasetFormat,
+  ) => {
+    const actionKey = `${video.id}:${format}`
+    setPendingAction(actionKey)
     try {
       await downloadFineTuningDataset({
         scope: 'transcription',
@@ -50,10 +71,10 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
           llmCurationScore: video.llmCurationScore,
           recommendation: video.llmCurationData?.recommendation,
         }),
-        format: 'json',
+        format,
         includeDuplicates: true,
       })
-      toast.success('JSON baixado')
+      toast.success(`${format.toUpperCase()} baixado`)
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -61,7 +82,7 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
           : 'Falha ao baixar a transcrição',
       )
     } finally {
-      setPendingId(null)
+      setPendingAction(null)
     }
   }
 
@@ -70,7 +91,9 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
       <Card>
         <CardContent className="py-10 text-center">
           <p className="text-muted-foreground text-sm">
-            Nenhum vídeo foi transcrito nesta playlist.
+            {processing
+              ? 'Os vídeos desta playlist estão sendo preparados.'
+              : 'Nenhum vídeo foi transcrito nesta playlist.'}
           </p>
         </CardContent>
       </Card>
@@ -79,14 +102,20 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Vídeos</CardTitle>
+        {failedCount > 0 && !processing && (
+          <RetryFailedPlaylistButton playlistId={playlistId} />
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         {videos.map((video, index) => (
           <div
             key={video.id}
-            className="bg-muted/30 flex items-center gap-4 rounded-lg p-3"
+            className={cn(
+              'bg-muted/30 flex flex-wrap items-center gap-4 rounded-lg p-3',
+              video.id === currentProcessingId && 'ring-2 ring-blue-500/40',
+            )}
           >
             <span className="text-muted-foreground w-6 text-center text-sm font-medium">
               {video.videoIndex ?? index + 1}
@@ -140,22 +169,34 @@ export function PlaylistVideoList({ videos }: PlaylistVideoListProps) {
               {statusIcon(video.status)}
               {formatStatus(video.status)}
             </Badge>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button asChild size="sm" variant="outline">
                 <Link href={`/dashboard/transcriptions/${video.id}`}>Ver</Link>
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleDownload(video)}
-                disabled={pendingId !== null || video.status !== 'COMPLETED'}
-              >
-                {pendingId === video.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-              </Button>
+              {video.status.toUpperCase() === 'ERROR' && !processing && (
+                <RetryTranscriptionButton id={video.id} />
+              )}
+              {video.status.toUpperCase() === 'COMPLETED' &&
+                getExportFormats().map((format) => {
+                  const actionKey = `${video.id}:${format.value}`
+                  return (
+                    <Button
+                      key={format.value}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => handleDownload(video, format.value)}
+                      disabled={pendingAction !== null}
+                    >
+                      {pendingAction === actionKey ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Download className="mr-1 h-3 w-3" />
+                      )}
+                      {format.label}
+                    </Button>
+                  )
+                })}
             </div>
           </div>
         ))}
