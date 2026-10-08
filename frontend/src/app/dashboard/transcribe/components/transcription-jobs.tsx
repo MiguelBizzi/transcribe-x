@@ -141,9 +141,14 @@ function TranscriptionJobCard({
                 <p className="text-muted-foreground truncate text-sm">
                   {transcription.youtubeId}
                 </p>
-                {transcription.status.toUpperCase() === 'ERROR' &&
-                  transcription.errorMessage && (
-                    <p className="text-xs text-red-600 dark:text-red-400">
+                {transcription.errorMessage && (
+                    <p
+                      className={
+                        transcription.status.toUpperCase() === 'ERROR'
+                          ? 'text-xs text-red-600 dark:text-red-400'
+                          : 'text-xs text-amber-700 dark:text-amber-300'
+                      }
+                    >
                       {transcription.errorMessage}
                     </p>
                   )}

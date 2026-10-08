@@ -27,7 +27,12 @@ export function RetryFailedPlaylistButton({
       }
 
       if (!result.data?.success) {
-        throw new Error(result.data?.message || 'Falha ao tentar novamente')
+        const message = result.data?.message || 'Falha ao tentar novamente'
+        if (message.includes('já está em processamento')) {
+          toast.info(message)
+          return
+        }
+        throw new Error(message)
       }
 
       toast.success(

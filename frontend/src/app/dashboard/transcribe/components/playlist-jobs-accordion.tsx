@@ -100,7 +100,7 @@ export function PlaylistJobsAccordion({
       {open && (
         <div className="space-y-3 border-t px-4 py-4">
           <div className="flex items-center justify-end gap-3">
-            {failedCount > 0 && statusLabel !== 'Processando' && (
+            {(failedCount > 0 || processingCount > 0) && (
               <RetryFailedPlaylistButton playlistId={playlistId} />
             )}
             <Link

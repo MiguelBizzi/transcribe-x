@@ -104,7 +104,7 @@ export function PlaylistVideoList({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Vídeos</CardTitle>
-        {failedCount > 0 && !processing && (
+        {(failedCount > 0 || processing) && (
           <RetryFailedPlaylistButton playlistId={playlistId} />
         )}
       </CardHeader>
@@ -155,8 +155,14 @@ export function PlaylistVideoList({
                 {video.deduplicationStatus === 'duplicate' && (
                   <Badge variant="outline">Duplicata</Badge>
                 )}
-                {video.status === 'ERROR' && video.errorMessage && (
-                  <span className="text-red-600 dark:text-red-400">
+                {video.errorMessage && (
+                  <span
+                    className={
+                      video.status.toUpperCase() === 'ERROR'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-amber-700 dark:text-amber-300'
+                    }
+                  >
                     {video.errorMessage}
                   </span>
                 )}

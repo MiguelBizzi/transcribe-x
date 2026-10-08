@@ -197,8 +197,10 @@ export async function PlaylistTranscriptionJobs() {
                     <PlaylistJobActions playlist={playlist} />
                   )}
 
-                  {(failedVideos > 0 || isError(playlist.status)) &&
-                    !isProcessing(playlist.status) && (
+                  {(failedVideos > 0 ||
+                    processingVideos > 0 ||
+                    isProcessing(playlist.status) ||
+                    isError(playlist.status)) && (
                       <RetryFailedPlaylistButton playlistId={playlist.id} />
                     )}
                 </div>

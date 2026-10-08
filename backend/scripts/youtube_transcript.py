@@ -18,6 +18,7 @@ import traceback
 from typing import Any, Dict, List
 
 try:
+    from requests import Session, Timeout
     from youtube_transcript_api import (
         AgeRestricted,
         InvalidVideoId,
@@ -38,7 +39,23 @@ except ImportError:
     sys.exit(1)
 
 
-PREFERRED_LANGUAGES = ["pt", "pt-BR", "en", "es", "fr", "de"]
+PREFERRED_LANGUAGES = [
+    "pt",
+    "pt-BR",
+    "pt-PT",
+    "en",
+    "en-US",
+    "en-GB",
+    "es",
+    "fr",
+    "de",
+]
+
+
+class TimeoutSession(Session):
+    def request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", (5, 20))
+        return super().request(method, url, **kwargs)
 
 
 def available_languages_from(exc: NoTranscriptFound) -> List[Dict[str, Any]]:
@@ -57,7 +74,7 @@ def available_languages_from(exc: NoTranscriptFound) -> List[Dict[str, Any]]:
 
 
 def classify_error(exc: BaseException) -> Dict[str, Any]:
-    if isinstance(exc, (IpBlocked, RequestBlocked)):
+    if isinstance(exc, (IpBlocked, RequestBlocked, Timeout)):
         return {
             "error": "YouTube is temporarily limiting caption requests",
             "error_type": "rate_limited",
@@ -102,6 +119,65 @@ def classify_error(exc: BaseException) -> Dict[str, Any]:
     }
 
 
+def fallback_transcript(exc: NoTranscriptFound):
+    transcripts = list(exc._transcript_data)
+    if not transcripts:
+        return None
+
+    def rank(transcript) -> tuple:
+        code = (transcript.language_code or "").lower()
+        if code.startswith("pt"):
+            return (0, transcript.is_generated)
+        if code.startswith("en"):
+            return (1, transcript.is_generated)
+        return (2, transcript.is_generated)
+
+    return sorted(transcripts, key=rank)[0]
+
+
+def build_transcript_result(video_id: str, transcript) -> Dict[str, Any]:
+    transcript_data: Dict[str, Any] = {
+        "success": True,
+        "video_id": video_id,
+        "language": transcript.language,
+        "language_code": transcript.language_code,
+        "is_generated": transcript.is_generated,
+        "word_count": 0,
+        "duration_seconds": 0,
+        "snippets": [],
+        "raw_text": "",
+        "timestamps": [],
+    }
+
+    all_text = []
+    for snippet in transcript:
+        snippet_data = {
+            "text": snippet.text,
+            "start": snippet.start,
+            "duration": snippet.duration,
+        }
+        transcript_data["snippets"].append(snippet_data)
+        transcript_data["timestamps"].append(snippet_data)
+        all_text.append(snippet.text)
+        transcript_data["duration_seconds"] = max(
+            transcript_data["duration_seconds"],
+            snippet.start + snippet.duration,
+        )
+
+    transcript_data["raw_text"] = " ".join(all_text)
+    transcript_data["word_count"] = len(transcript_data["raw_text"].split())
+
+    if not transcript_data["raw_text"].strip():
+        return {
+            "success": False,
+            "error": "No transcript available for this video",
+            "error_type": "no_transcript",
+            "video_id": video_id,
+        }
+
+    return transcript_data
+
+
 def get_video_transcript(video_id: str) -> Dict[str, Any]:
     """
     Fetch transcript for a YouTube video.
@@ -113,49 +189,16 @@ def get_video_transcript(video_id: str) -> Dict[str, Any]:
         Dict containing transcript data or error information
     """
     try:
-        ytt_api = YouTubeTranscriptApi()
-        transcript = ytt_api.fetch(video_id, languages=PREFERRED_LANGUAGES)
+        ytt_api = YouTubeTranscriptApi(http_client=TimeoutSession())
+        try:
+            transcript = ytt_api.fetch(video_id, languages=PREFERRED_LANGUAGES)
+        except NoTranscriptFound as exc:
+            fallback = fallback_transcript(exc)
+            if fallback is None:
+                raise
+            transcript = fallback.fetch()
 
-        transcript_data: Dict[str, Any] = {
-            "success": True,
-            "video_id": video_id,
-            "language": transcript.language,
-            "language_code": transcript.language_code,
-            "is_generated": transcript.is_generated,
-            "word_count": 0,
-            "duration_seconds": 0,
-            "snippets": [],
-            "raw_text": "",
-            "timestamps": [],
-        }
-
-        all_text = []
-        for snippet in transcript:
-            snippet_data = {
-                "text": snippet.text,
-                "start": snippet.start,
-                "duration": snippet.duration,
-            }
-            transcript_data["snippets"].append(snippet_data)
-            transcript_data["timestamps"].append(snippet_data)
-            all_text.append(snippet.text)
-            transcript_data["duration_seconds"] = max(
-                transcript_data["duration_seconds"],
-                snippet.start + snippet.duration,
-            )
-
-        transcript_data["raw_text"] = " ".join(all_text)
-        transcript_data["word_count"] = len(transcript_data["raw_text"].split())
-
-        if not transcript_data["raw_text"].strip():
-            return {
-                "success": False,
-                "error": "No transcript available for this video",
-                "error_type": "no_transcript",
-                "video_id": video_id,
-            }
-
-        return transcript_data
+        return build_transcript_result(video_id, transcript)
 
     except Exception as exc:
         error_info = classify_error(exc)

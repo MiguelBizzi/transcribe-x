@@ -10,6 +10,7 @@ import { transcriptErrorMessage, isRateLimitedResult } from './transcript-errors
 import {
     fetchTranscriptWithBackoff,
     INTER_VIDEO_DELAY_MS,
+    PLAYLIST_RATE_LIMIT_BACKOFF_MS,
     RATE_LIMIT_COOLDOWN_MS,
     sleep,
 } from './transcript-attempt'
@@ -287,7 +288,14 @@ export class PlaylistTranscriptionService {
                 select: {
                     id: true,
                     transcriptions: {
-                        where: { status: TranscriptionStatus.ERROR },
+                        where: {
+                            status: {
+                                in: [
+                                    TranscriptionStatus.ERROR,
+                                    TranscriptionStatus.PROCESSING,
+                                ],
+                            },
+                        },
                         orderBy: { videoIndex: 'asc' },
                         select: { id: true, youtubeId: true },
                     },
@@ -303,7 +311,7 @@ export class PlaylistTranscriptionService {
                 processingPlaylists.delete(playlistId)
                 return {
                     outcome: 'rejected',
-                    message: 'Nenhum vídeo com erro para tentar novamente.',
+                    message: 'Nenhum vídeo pendente para tentar novamente.',
                 }
             }
 
@@ -417,7 +425,9 @@ export class PlaylistTranscriptionService {
                 )
             }
 
-            const outcome = await this.applyTranscript(row.id, row.youtubeId)
+            const outcome = await this.applyTranscript(row.id, row.youtubeId, {
+                backoffMs: PLAYLIST_RATE_LIMIT_BACKOFF_MS,
+            })
             lastWasRateLimited = outcome.rateLimited
         }
     }
@@ -425,9 +435,21 @@ export class PlaylistTranscriptionService {
     private async applyTranscript(
         transcriptionId: string,
         youtubeId: string,
+        options?: { backoffMs?: number[] },
     ): Promise<{ rateLimited: boolean }> {
         try {
-            const result = await fetchTranscriptWithBackoff(youtubeId)
+            const result = await fetchTranscriptWithBackoff(youtubeId, {
+                backoffMs: options?.backoffMs,
+                onWait: async () => {
+                    await prisma.transcription.update({
+                        where: { id: transcriptionId },
+                        data: {
+                            errorMessage:
+                                'O YouTube limitou temporariamente o acesso às legendas. Tentando de novo em instantes.',
+                        },
+                    })
+                },
+            })
 
             if (result.success && result.raw_text) {
                 await prisma.transcription.update({
@@ -530,6 +552,35 @@ export class PlaylistTranscriptionService {
                 completedAt: new Date(),
             },
         })
+    }
+
+    async resumeInterruptedPlaylists(): Promise<void> {
+        const playlists = await prisma.playlist.findMany({
+            where: { status: TranscriptionStatus.PROCESSING },
+            select: {
+                id: true,
+                transcriptions: {
+                    where: { status: TranscriptionStatus.PROCESSING },
+                    orderBy: { videoIndex: 'asc' },
+                    select: { id: true, youtubeId: true },
+                },
+            },
+        })
+
+        for (const playlist of playlists) {
+            if (processingPlaylists.has(playlist.id)) continue
+
+            if (playlist.transcriptions.length === 0) {
+                await this.refreshPlaylistSummary(playlist.id)
+                continue
+            }
+
+            processingPlaylists.add(playlist.id)
+            console.log(
+                `Resuming playlist ${playlist.id} with ${playlist.transcriptions.length} videos left`,
+            )
+            void this.finishFailedRetry(playlist.id, playlist.transcriptions)
+        }
     }
 
     async getUserPlaylists(userId: string) {

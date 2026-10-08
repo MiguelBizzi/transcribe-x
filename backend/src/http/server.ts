@@ -20,6 +20,7 @@ import { recentActivityRoutes } from './routes/recent-activity'
 import { transcriptionRoutes } from './routes/transcriptions'
 import { exportRoutes } from './routes/exports'
 import { cleanupJobs } from '@/jobs/cleanup-jobs'
+import { playlistTranscriptionService } from '@/services/playlist-transcription-service'
 
 const app = fastify().withTypeProvider<ZodTypeProvider>()
 
@@ -92,4 +93,5 @@ app.listen({ port: env.SERVER_PORT }).then(() => {
     console.log('Server is running on port', env.SERVER_PORT)
 
     cleanupJobs.start()
+    void playlistTranscriptionService.resumeInterruptedPlaylists()
 })
