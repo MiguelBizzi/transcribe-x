@@ -12,10 +12,11 @@ Returns:
     JSON string with transcript data or error information
 """
 
+import os
 import sys
 import json
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping, Optional
 
 try:
     from requests import Session, Timeout
@@ -29,6 +30,11 @@ try:
         VideoUnavailable,
         VideoUnplayable,
         YouTubeTranscriptApi,
+    )
+    from youtube_transcript_api.proxies import (
+        GenericProxyConfig,
+        ProxyConfig,
+        WebshareProxyConfig,
     )
 except ImportError:
     print(json.dumps({
@@ -50,6 +56,34 @@ PREFERRED_LANGUAGES = [
     "fr",
     "de",
 ]
+
+
+# Attempts per video when a proxy is configured: a rotating proxy hands out a
+# new IP on each attempt, so a blocked IP is worth retrying.
+PROXY_BLOCKED_ATTEMPTS = 3
+
+
+def build_proxy_config(env: Mapping[str, str]) -> Optional[ProxyConfig]:
+    """
+    Build the proxy configuration from environment variables.
+
+    YouTube blocks caption requests per IP, so routing them through a proxy is
+    the only way around an IP ban. Webshare rotating residential proxies take
+    precedence over a generic proxy URL.
+    """
+    username = env.get("WEBSHARE_PROXY_USERNAME", "").strip()
+    password = env.get("WEBSHARE_PROXY_PASSWORD", "").strip()
+    if username and password:
+        return WebshareProxyConfig(
+            proxy_username=username,
+            proxy_password=password,
+        )
+
+    proxy_url = env.get("YOUTUBE_PROXY_URL", "").strip()
+    if proxy_url:
+        return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+
+    return None
 
 
 class TimeoutSession(Session):
@@ -178,6 +212,20 @@ def build_transcript_result(video_id: str, transcript) -> Dict[str, Any]:
     return transcript_data
 
 
+def fetch_transcript(video_id: str, proxy_config: Optional[ProxyConfig]):
+    ytt_api = YouTubeTranscriptApi(
+        http_client=TimeoutSession(),
+        proxy_config=proxy_config,
+    )
+    try:
+        return ytt_api.fetch(video_id, languages=PREFERRED_LANGUAGES)
+    except NoTranscriptFound as exc:
+        fallback = fallback_transcript(exc)
+        if fallback is None:
+            raise
+        return fallback.fetch()
+
+
 def get_video_transcript(video_id: str) -> Dict[str, Any]:
     """
     Fetch transcript for a YouTube video.
@@ -189,16 +237,16 @@ def get_video_transcript(video_id: str) -> Dict[str, Any]:
         Dict containing transcript data or error information
     """
     try:
-        ytt_api = YouTubeTranscriptApi(http_client=TimeoutSession())
-        try:
-            transcript = ytt_api.fetch(video_id, languages=PREFERRED_LANGUAGES)
-        except NoTranscriptFound as exc:
-            fallback = fallback_transcript(exc)
-            if fallback is None:
-                raise
-            transcript = fallback.fetch()
+        proxy_config = build_proxy_config(os.environ)
+        attempts = PROXY_BLOCKED_ATTEMPTS if proxy_config else 1
 
-        return build_transcript_result(video_id, transcript)
+        for attempt in range(1, attempts + 1):
+            try:
+                transcript = fetch_transcript(video_id, proxy_config)
+                return build_transcript_result(video_id, transcript)
+            except (IpBlocked, RequestBlocked):
+                if attempt == attempts:
+                    raise
 
     except Exception as exc:
         error_info = classify_error(exc)
