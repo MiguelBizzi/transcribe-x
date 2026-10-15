@@ -159,7 +159,9 @@ def build_user_prompt(
     return f"Transcript:\n{text}"
 
 
-def curate_with_openai(prompt: str, model: str, api_key: str) -> str:
+def curate_with_openai(
+    prompt: str, model: str, api_key: str, system_prompt: str = SYSTEM_PROMPT
+) -> str:
     from openai import OpenAI
 
     client = OpenAI(api_key=api_key)
@@ -168,7 +170,7 @@ def curate_with_openai(prompt: str, model: str, api_key: str) -> str:
         temperature=0.2,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
     )
@@ -178,7 +180,9 @@ def curate_with_openai(prompt: str, model: str, api_key: str) -> str:
     return content
 
 
-def curate_with_ollama(prompt: str, model: str, base_url: str) -> str:
+def curate_with_ollama(
+    prompt: str, model: str, base_url: str, system_prompt: str = SYSTEM_PROMPT
+) -> str:
     import httpx
 
     url = base_url.rstrip("/") + "/api/chat"
@@ -189,7 +193,7 @@ def curate_with_ollama(prompt: str, model: str, base_url: str) -> str:
             "stream": False,
             "format": "json",
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
             ],
         },
@@ -210,6 +214,7 @@ def complete_with_fallback(
     ollama_model: str,
     openai_api_key: str,
     ollama_base_url: str,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> tuple[str, str, str]:
     used_provider = provider
     used_model = openai_model if provider == "openai" else ollama_model
@@ -219,17 +224,25 @@ def complete_with_fallback(
         if provider == "openai":
             if not openai_api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI curation")
-            raw = curate_with_openai(prompt, openai_model, openai_api_key)
+            raw = curate_with_openai(
+                prompt, openai_model, openai_api_key, system_prompt
+            )
         else:
-            raw = curate_with_ollama(prompt, ollama_model, ollama_base_url)
+            raw = curate_with_ollama(
+                prompt, ollama_model, ollama_base_url, system_prompt
+            )
     except Exception as primary_error:
         fallback_provider = "ollama" if provider == "openai" else "openai"
         if fallback_provider == "ollama":
-            raw = curate_with_ollama(prompt, ollama_model, ollama_base_url)
+            raw = curate_with_ollama(
+                prompt, ollama_model, ollama_base_url, system_prompt
+            )
             used_provider = "ollama"
             used_model = ollama_model
         elif openai_api_key:
-            raw = curate_with_openai(prompt, openai_model, openai_api_key)
+            raw = curate_with_openai(
+                prompt, openai_model, openai_api_key, system_prompt
+            )
             used_provider = "openai"
             used_model = openai_model
         else:

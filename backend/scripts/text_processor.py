@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 import re
 import sys
+import threading
 import time
 import traceback
 import unicodedata
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 FILLERS: Dict[str, Set[str]] = {
     "en": {
@@ -49,13 +50,6 @@ LANGUAGE_ALIASES = {
     "fr-fr": "fr",
     "de-de": "de",
 }
-
-FUNCTION_LETTERS: Dict[str, Set[str]] = {
-    "pt": {"a", "à", "e", "é", "o", "ó"},
-    "en": {"a", "i"},
-    "es": {"a", "e", "o", "y"},
-}
-_DEFAULT_FUNCTION_LETTERS: Set[str] = set().union(*FUNCTION_LETTERS.values())
 
 REPEATED_COMMA_RE = re.compile(r",(?:\s*,)+")
 COMMA_BEFORE_PUNCT_RE = re.compile(r",\s*([.;:!?])")
@@ -218,6 +212,10 @@ MULTILINE_RE = re.compile(r"\n{3,}")
 ELLIPSIS_RE = re.compile(r"\.{2,}")
 SPACE_PUNCT_RE = re.compile(r"\s+([,.;:!?])")
 MISSING_SPACE_RE = re.compile(r"([.!?])([^\s\d])")
+# Sentence mark left alone when the word before it was removed: "Oxford? Hmm."
+# becomes "Oxford? ." after filler removal.
+STRANDED_MARK_RE = re.compile(r"([.!?])\s+[.!?]+(?=\s|$)")
+SENTENCE_END_RE = re.compile(r"[.!?][\"'”’)\]]*$")
 
 
 def normalize_language(code: Optional[str]) -> str:
@@ -229,13 +227,22 @@ def normalize_language(code: Optional[str]) -> str:
     return lowered.split("-")[0] or "en"
 
 
+# langdetect loads its language profiles lazily into a shared factory. Two
+# threads loading at once corrupt the tables (Portuguese came back as "sl").
+_LANGDETECT_LOCK = threading.Lock()
+
+
 def detect_language(text: str, fallback: str) -> str:
     try:
-        from langdetect import detect, LangDetectException
+        from langdetect import DetectorFactory, detect
 
+        # langdetect samples randomly; without a seed, mixed-language text can
+        # flip between runs and change fillers, spellcheck and metrics.
+        DetectorFactory.seed = 0
         if len(text.split()) < 5:
             return fallback
-        detected = detect(text)
+        with _LANGDETECT_LOCK:
+            detected = detect(text)
         return normalize_language(detected)
     except Exception:
         return fallback
@@ -308,13 +315,19 @@ def tokenize_words(text: str) -> List[str]:
     return [match.group(0) for match in WORD_RE.finditer(text)]
 
 
+def filler_set(language: str) -> Set[str]:
+    # One language's list only. English hesitations collide with real words
+    # elsewhere: "um" is the Portuguese indefinite article.
+    return FILLERS.get(language, FILLERS["en"])
+
+
 def count_fillers(words: List[str], language: str) -> int:
-    fillers = FILLERS.get(language, FILLERS["en"]) | FILLERS["en"]
+    fillers = filler_set(language)
     return sum(1 for word in words if word.lower() in fillers)
 
 
 def remove_fillers(text: str, language: str) -> str:
-    fillers = FILLERS.get(language, FILLERS["en"]) | FILLERS["en"]
+    fillers = filler_set(language)
 
     def replace(match: re.Match[str]) -> str:
         token = match.group(0)
@@ -336,7 +349,11 @@ def collapse_repetitions(text: str) -> Tuple[str, int]:
     while i < len(words):
         matched = False
         for n in (3, 2, 1):
-            if i + 2 * n <= len(words):
+            # A copy that closes a sentence is dialogue or a drill ("Go
+            # straight. Go straight."), not a disfluency.
+            if i + 2 * n <= len(words) and not any(
+                SENTENCE_END_RE.search(w) for w in words[i : i + n]
+            ):
                 current = [w.lower() for w in words[i : i + n]]
                 nxt = [w.lower() for w in words[i + n : i + 2 * n]]
                 if current == nxt:
@@ -357,35 +374,16 @@ def collapse_repetitions(text: str) -> Tuple[str, int]:
     return " ".join(collapsed), removed
 
 
-def function_letters(language: str) -> Set[str]:
-    return FUNCTION_LETTERS.get(language, _DEFAULT_FUNCTION_LETTERS)
-
-
-def _drop_isolated_letters(text: str, language: str) -> Tuple[str, int]:
-    allowed = function_letters(language)
-    removed = 0
-
-    def replace(match: re.Match[str]) -> str:
-        nonlocal removed
-        token = match.group(0)
-        if len(token) == 1 and token.lower() not in allowed:
-            removed += 1
-            return ""
-        return token
-
-    return WORD_RE.sub(replace, text), removed
-
-
 def _orphan_comma_indexes(text: str) -> List[int]:
-    """Commas that do not sit between two words."""
+    """Commas that do not sit between two words or numbers ("3,5" stays)."""
     indexes: List[int] = []
     for index, char in enumerate(text):
         if char != ",":
             continue
         before = text[:index].rstrip()
         after = text[index + 1 :].lstrip()
-        before_ok = bool(before) and re.search(r"[^\W\d_]$", before) is not None
-        after_ok = bool(after) and re.match(r"[^\W\d_]", after) is not None
+        before_ok = bool(before) and re.search(r"[^\W_]$", before) is not None
+        after_ok = bool(after) and re.match(r"[^\W_]", after) is not None
         if not (before_ok and after_ok):
             indexes.append(index)
     return indexes
@@ -400,17 +398,15 @@ def _remove_orphan_commas(text: str) -> str:
     return "".join(char for index, char in enumerate(cleaned) if index not in indexes)
 
 
-def count_residual_artifacts(text: str, language: str) -> Tuple[int, int]:
-    """Orphan commas and isolated non-word letters still present in text."""
-    without_letters, letters = _drop_isolated_letters(text, language)
-    without_commas = _remove_orphan_commas(without_letters)
-    commas = without_letters.count(",") - without_commas.count(",")
-    return commas, letters
+def count_residual_artifacts(text: str) -> int:
+    """Orphan commas still present in text."""
+    return text.count(",") - _remove_orphan_commas(text).count(",")
 
 
-def strip_residual_artifacts(text: str, language: str) -> str:
-    without_letters, _ = _drop_isolated_letters(text, language)
-    return _remove_orphan_commas(without_letters)
+def strip_residual_artifacts(text: str) -> str:
+    # Single letters stay: in lectures they are variables (x, y), list items
+    # (item b) and spelled initials, not caption debris.
+    return _remove_orphan_commas(text)
 
 
 def count_immediate_repetitions(words: List[str]) -> int:
@@ -429,6 +425,7 @@ def normalize_sentences(text: str) -> str:
     cleaned = text.replace("\u00a0", " ")
     cleaned = ELLIPSIS_RE.sub("...", cleaned)
     cleaned = WHITESPACE_RE.sub(" ", cleaned)
+    cleaned = STRANDED_MARK_RE.sub(r"\1", cleaned)
     cleaned = MULTILINE_RE.sub("\n\n", cleaned)
     cleaned = SPACE_PUNCT_RE.sub(r"\1", cleaned)
     cleaned = MISSING_SPACE_RE.sub(r"\1 \2", cleaned)
@@ -512,6 +509,21 @@ def maybe_spellcheck(text: str, language: str, is_generated: bool) -> str:
         return correction
 
     return WORD_RE.sub(replace, text)
+
+
+def maybe_restore_punctuation(
+    text: str, completer: Optional[Callable[[str], str]]
+) -> Tuple[str, bool]:
+    """Sentence boundaries for unpunctuated auto captions, words untouched."""
+    if completer is None:
+        return text, False
+
+    from punctuation_restorer import needs_punctuation, restore_punctuation
+
+    if not needs_punctuation(text):
+        return text, False
+    restored, stats = restore_punctuation(text, completer)
+    return restored, stats["failedChunks"] < stats["chunks"]
 
 
 def sentence_length_score(avg_sentence_length: float) -> float:
@@ -618,16 +630,12 @@ def compute_metrics(
         processed_count / len(sentences) if sentences else float(processed_count)
     )
 
-    residual_commas, residual_letters = count_residual_artifacts(
-        processed_text, detected_language
-    )
+    residual_commas = count_residual_artifacts(processed_text)
     if processed_count == 0:
         artifact_rate = 1.0
         residue_rate = 1.0
     else:
-        artifact_rate = min(
-            1.0, (residual_commas + residual_letters) / processed_count
-        )
+        artifact_rate = min(1.0, residual_commas / processed_count)
         fillers_left = count_fillers(processed_words, detected_language)
         repeats_left = count_immediate_repetitions(processed_words)
         residue_rate = min(1.0, (fillers_left + repeats_left) / processed_count)
@@ -660,7 +668,6 @@ def compute_metrics(
         "processingDurationMs": duration_ms,
         "artifactRate": round(artifact_rate, 4),
         "residualCommaCount": residual_commas,
-        "residualLetterCount": residual_letters,
         "qualityScore": round(min(max(quality_score, 0.0), 1.0), 4),
     }
 
@@ -669,6 +676,7 @@ def process_text(
     text: str,
     language_code: Optional[str] = None,
     is_generated: bool = False,
+    punctuation_completer: Optional[Callable[[str], str]] = None,
 ) -> Dict[str, Any]:
     started = time.perf_counter()
     original = text or ""
@@ -680,8 +688,11 @@ def process_text(
     hesitation_count = count_fillers(tokenize_words(without_markers), language)
     without_fillers = remove_fillers(without_markers, language)
     without_repeats, repetition_count = collapse_repetitions(without_fillers)
-    spellchecked = maybe_spellcheck(without_repeats, language, is_generated)
-    without_residue = strip_residual_artifacts(spellchecked, language)
+    punctuated, punctuation_restored = maybe_restore_punctuation(
+        without_repeats, punctuation_completer
+    )
+    spellchecked = maybe_spellcheck(punctuated, language, is_generated)
+    without_residue = strip_residual_artifacts(spellchecked)
     processed = normalize_sentences(without_residue)
 
     duration_ms = int((time.perf_counter() - started) * 1000)
@@ -694,6 +705,7 @@ def process_text(
         language,
         duration_ms,
     )
+    metrics["punctuationRestored"] = punctuation_restored
 
     return {
         "success": True,
@@ -723,6 +735,7 @@ def analyze_text(
         language,
         duration_ms,
     )
+    metrics["punctuationRestored"] = False
     return {
         "success": True,
         "processedText": target,
@@ -750,10 +763,16 @@ def main() -> None:
                 reference_text=payload.get("reference_text"),
             )
         else:
+            completer = None
+            if payload.get("restore_punctuation"):
+                from punctuation_restorer import llm_completer
+
+                completer = llm_completer(payload)
             result = process_text(
                 text=str(payload.get("text") or ""),
                 language_code=payload.get("language_code"),
                 is_generated=bool(payload.get("is_generated", False)),
+                punctuation_completer=completer,
             )
         print(json.dumps(result, ensure_ascii=False))
     except Exception as exc:

@@ -23,7 +23,8 @@
         "db:generate": "prisma generate",
         "db:studio": "prisma studio",
         "transcript:setup": "cd scripts && chmod +x setup.sh && ./setup.sh",
-        "transcript:test-python": "python3 scripts/youtube_transcript.py dQw4w9WgXcQ"
+        "transcript:test-python": "python3 scripts/youtube_transcript.py dQw4w9WgXcQ",
+        "reprocess:all": "tsx src/scripts/reprocess-all.ts"
     },
     "keywords": [],
     "author": "",

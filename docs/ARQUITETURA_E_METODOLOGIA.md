@@ -306,13 +306,15 @@ O processador recebe `{ text, language_code, is_generated }` e devolve `{ proces
    - português: *ah, eh, né, ne, ãh, ahn, hum, éh, hã…*
    - espanhol, francês, alemão: conjuntos equivalentes.
 
-   O conjunto da língua detectada é unido ao inglês, para cobrir mistura de código.
+   Só o conjunto da língua detectada é usado. Ele já foi unido ao inglês, para cobrir mistura de código, mas hesitações inglesas colidem com palavras de outras línguas: `um` é o artigo indefinido do português. No corpus local, 65% das "hesitações" removidas em português eram esse artigo.
 
-4. **Colapso de repetições.** Detecta n-gramas imediatos de tamanho 3, 2 e 1 (`"vamos vamos vamos"` → `"vamos"`). Conta tokens removidos.
+4. **Colapso de repetições.** Detecta n-gramas imediatos de tamanho 3, 2 e 1 (`"vamos vamos vamos"` → `"vamos"`). Conta tokens removidos. Uma cópia que fecha frase (`.`, `!`, `?`) não é colapsada: `Go straight. Go straight.` é diálogo ou exercício, não hesitação.
+4a. **Restauração de pontuação (legendas automáticas).** Legendas automáticas do YouTube chegam sem pontuação: no corpus local, 72 de 109 vídeos têm menos de 0,02 marca de fim de frase por palavra, e a "sentença" média passa de 1.900 palavras. O texto é dividido em blocos de 250 palavras e um LLM (o mesmo provedor da curadoria) propõe pontuação e maiúsculas. As palavras propostas pelo modelo nunca entram no texto: a proposta é alinhada aos tokens de origem (`difflib`) e só a pontuação e a capitalização são copiadas. A sequência de palavras de saída é idêntica à de entrada por construção. Bloco que falha fica como estava. Só roda quando o texto está sem pontuação; `PUNCTUATION_RESTORATION=false` desliga. Implementação: `punctuation_restorer.py`; o campo `punctuationRestored` registra se houve restauração.
 5. **Correção ortográfica condicional.** `pyspellchecker` só se `is_generated = true`, língua em `{en, es, fr, pt, de}` e texto ≤ 2.500 palavras. Tokens com menos de 3 letras e não alfabéticos são ignorados; a capitalização é preservada. A sugestão só entra quando a sequência de letras é a mesma — o corretor restaura acentos (`nao` → `não`, `voce` → `você`) e não troca a palavra por um vizinho de edição. Termos fora do dicionário ficam como foram falados (`frontend`, `bora`).
-6. **Limpeza residual.** Roda depois do corretor e antes da normalização, porque a remoção de hesitações apaga o token e deixa a pontuação em volta (`né,` vira uma vírgula solta) e porque o corretor não mexe em tokens de uma letra (`q`, `x`).
-   - Vírgula que não está entre duas palavras: vírgula inicial, `,,` e vírgula imediatamente antes de `.!?;:`.
-   - Letra isolada que não é palavra funcional da língua detectada. Listas: português `a à e é o ó`; inglês `a i`; espanhol `a e o y`. Língua fora dessa lista usa a união das três, para não apagar uma palavra funcional quando a detecção falha.
+6. **Limpeza residual.** Roda depois do corretor e antes da normalização, porque a remoção de hesitações apaga o token e deixa a pontuação em volta (`né,` vira uma vírgula solta).
+   - Vírgula que não está entre duas palavras ou números: vírgula inicial, `,,` e vírgula imediatamente antes de `.!?;:`. Número conta como palavra — a versão anterior apagava a vírgula decimal (`3,5` → `35`), o que corrompia os 242 decimais do corpus.
+   - Marca de frase que sobra quando a hesitação antes dela sai (`Oxford? Hmm.` → `Oxford?`).
+   - Letras isoladas **ficam**. A versão anterior apagava toda letra fora de uma lista de palavras funcionais; no corpus isso removia 3.252 tokens de conteúdo — variáveis (`raiz de x`), itens (`item b`), siglas soletradas — e ainda contava essas letras como "artefato" do bruto.
 7. **Normalização de sentenças.** Espaços, reticências, pontuação colada, capitalização da primeira letra de cada sentença, ponto final se ausente. Só acontece depois da limpeza residual, para não capitalizar uma vírgula órfã (` , bom` não vira `, Bom`).
 
 O resultado é `processedContent`. O bruto permanece em `content`, o que torna o pipeline **reversível** para comparação experimental.
@@ -338,9 +340,9 @@ Cada versão — bruto e processado — recebe a mesma função sobre o próprio
 | Hesitações | `hesitationCount` | *Fillers* antes da remoção |
 | Repetições | `repetitionCount` | Tokens colapsados |
 | Timestamps removidos | `timestampMarkersRemoved` | Ruído de legenda |
-| Taxa de artefatos | `artifactRate` | Vírgulas órfãs + letras soltas, sobre o número de tokens |
+| Taxa de artefatos | `artifactRate` | Vírgulas órfãs sobre o número de tokens |
 | Vírgulas órfãs | `residualCommaCount` | Vírgulas que não ligam duas palavras |
-| Letras soltas | `residualLetterCount` | Letras isoladas fora da lista funcional da língua |
+| Pontuação restaurada | `punctuationRestored` | Se a etapa 4a pontuou o texto |
 | Idioma detectado | `detectedLanguage` | `langdetect` |
 | Tempo de processamento | `processingDurationMs` | Custo operacional |
 | Score de limpeza | `qualityScore` | Heurística interna ∈ [0, 1], sem o termo de ruído |
@@ -410,7 +412,7 @@ depois clipado em \([0, 1]\).
 Interpretação dos pesos:
 
 - **40% fluência de sentença:** a zona 8–25 palavras já definida acima.
-- **30% ausência de artefatos:** vírgulas órfãs e letras soltas.
+- **30% ausência de artefatos:** vírgulas órfãs.
 - **30% ausência de resíduo de fala:** fillers e repetição imediata que ainda estão no texto.
 
 A taxa de redução de ruído \(r\) fica fora de \(Q\). No bruto ela é sempre 0, porque a análise compara o texto consigo mesmo; usá-la como termo \((1-r)\) dava um bônus automático à aba Bruto e penalizava exatamente a limpeza que o pipeline deveria fazer. \(r\) continua no JSON e na interface como diagnóstico de quanto o processamento removeu.
@@ -439,6 +441,8 @@ O protocolo de comparação, depois da correção:
 - \(r\) é só o delta de tokens do processamento, quando há `reference_text`;
 - artefatos entram em \(Q\) e devem cair no texto processado;
 - MATTR e MTLD permanecem no relatório como diagnóstico de diversidade, com a leitura explícita de que uma queda pode ser remoção de hapax.
+
+A validação pareada bruto × processado — por que as métricas empatavam, a correção e os resultados estatísticos — está em [`AVALIACAO_PIPELINE.md`](AVALIACAO_PIPELINE.md).
 
 ---
 

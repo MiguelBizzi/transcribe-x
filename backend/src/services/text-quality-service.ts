@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { existsSync } from 'fs'
 import path from 'path'
 import { prisma } from '@/lib/prisma'
+import { env } from '@/lib/env'
 import type { Prisma } from '@/generated/prisma/client'
 import { downstreamResetData } from './pipeline-reset'
 
@@ -20,7 +21,7 @@ export interface QualityMetrics {
     processingDurationMs: number
     artifactRate: number
     residualCommaCount: number
-    residualLetterCount: number
+    punctuationRestored: boolean
     qualityScore: number
 }
 
@@ -44,8 +45,9 @@ export interface TextQualityServiceOptions {
 
 // Spellchecking auto-generated captions scales with vocabulary, not just
 // length: a 2k-word Portuguese transcript took 16s before the correction
-// cache. Leave room for slow machines; the timeout only guards a hung script.
-const DEFAULT_TIMEOUT_MS = 90000
+// cache. Punctuation restoration adds LLM round trips (parallel, 250 words
+// each). Leave room for slow machines; the timeout only guards a hung script.
+const DEFAULT_TIMEOUT_MS = 180000
 
 function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
@@ -99,6 +101,7 @@ export class TextQualityService {
                 text: rawText,
                 language_code: languageCode || null,
                 is_generated: isGenerated,
+                ...this.punctuationPayload(),
             })
 
             if (
@@ -203,12 +206,32 @@ export class TextQualityService {
         return result
     }
 
+    private punctuationPayload() {
+        if (!env.PUNCTUATION_RESTORATION) {
+            return { restore_punctuation: false }
+        }
+        return {
+            restore_punctuation: true,
+            provider: env.CURATION_LLM_PROVIDER,
+            openai_api_key: env.OPENAI_API_KEY,
+            openai_model: env.OPENAI_MODEL,
+            ollama_base_url: env.OLLAMA_BASE_URL,
+            ollama_model: env.OLLAMA_MODEL,
+        }
+    }
+
     private executePythonScript(payload: {
         text: string
         language_code: string | null
         is_generated: boolean
         analyze_only?: boolean
         reference_text?: string | null
+        restore_punctuation?: boolean
+        provider?: string
+        openai_api_key?: string
+        openai_model?: string
+        ollama_base_url?: string
+        ollama_model?: string
     }): Promise<PythonProcessResponse> {
         return new Promise((resolve, reject) => {
             const pythonProcess = spawn(this.pythonPath, [this.scriptPath], {

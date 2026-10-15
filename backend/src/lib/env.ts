@@ -28,6 +28,11 @@ export const envSchema = z.object({
     OPENAI_MODEL: z.string().default('gpt-4o-mini'),
     OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
     OLLAMA_MODEL: z.string().default('llama3'),
+    // Punctuation restoration of auto captions, through the curation provider
+    PUNCTUATION_RESTORATION: z
+        .enum(['true', 'false'])
+        .default('true')
+        .transform((value) => value === 'true'),
     // Near-duplicate detection
     DEDUP_JACCARD_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
     DEDUP_NGRAM_SIZE: z.coerce.number().int().min(1).max(10).default(3),

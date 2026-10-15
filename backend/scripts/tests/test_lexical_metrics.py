@@ -117,8 +117,66 @@ def test_processing_removes_orphan_commas_and_loose_letters():
         assert ",," not in processed
         assert not processed.startswith(",")
         assert ",." not in processed.replace(" ", "")
-        assert " q " not in f" {processed.lower()} "
-        assert " x " not in f" {processed.lower()} "
+
+
+def test_processing_keeps_single_letter_content():
+    # Variables, list items and initials are spoken content, not caption debris.
+    sample = "vamos ver o item b agora e depois a raiz de x vezes y no exercício."
+    processed = process_text(sample, "pt", False)["processedText"].lower()
+    words = processed.rstrip(".").split()
+    for letter in ("b", "x", "y"):
+        assert letter in words
+
+
+def test_portuguese_article_um_is_not_a_filler():
+    sample = "Ele comprou um carro novo e um livro para a família toda, né."
+    result = process_text(sample, "pt", False)
+    words = result["processedText"].lower().rstrip(".").replace(",", "").split()
+    assert words.count("um") == 2
+    assert "né" not in words
+    assert result["qualityMetrics"]["hesitationCount"] == 1
+
+
+def test_repeated_sentences_in_dialogue_are_kept():
+    # Drills and dialogue repeat whole sentences on purpose; a disfluency
+    # repeats words inside one sentence.
+    for sample, kept in (
+        ("You need a bed. A bed. And you need a lamp.", "bed. A bed."),
+        ("Go straight. Go straight. Turn left.", "Go straight. Go straight."),
+        ("Hello! Hello! How are you?", "Hello! Hello!"),
+    ):
+        processed = process_text(sample, "en", False)["processedText"]
+        assert kept in processed
+
+
+def test_disfluent_repetition_inside_a_sentence_still_collapses():
+    processed = process_text("we we we need a bed bed now.", "en", False)
+    assert processed["processedText"] == "We need a bed now."
+
+
+def test_commas_next_to_numbers_are_kept():
+    decimal = process_text("a raiz de 2,25 é 1,5 então seguimos.", "pt", False)
+    assert "2,25" in decimal["processedText"] and "1,5" in decimal["processedText"]
+    clause = process_text("When he was 70, he moved to a new house.", "en", False)
+    assert "70, he" in clause["processedText"]
+    orphan = process_text("Então, né, a gente vai, ah, com calma.", "pt", False)
+    assert ",," not in orphan["processedText"].replace(" ", "")
+
+
+def test_removed_filler_leaves_no_stranded_punctuation():
+    for sample, expected in (
+        ("What is there in Oxford? Hmm. There is a castle.", "What is there in Oxford? There is a castle."),
+        ("Where is the hospital. Hmm. It is here.", "Where is the hospital. It is here."),
+        ("I like pasta. Hmm... Correct!", "I like pasta. Correct!"),
+        ("Nice! Hmm... I like singing.", "Nice! I like singing."),
+    ):
+        assert process_text(sample, "en", False)["processedText"] == expected
+
+
+def test_english_fillers_are_still_removed_in_english():
+    processed = process_text("uh I think um this is er the answer", "en", False)
+    words = processed["processedText"].lower().rstrip(".").split()
+    assert "uh" not in words and "um" not in words and "er" not in words
 
 
 def test_processing_keeps_function_words():
@@ -236,3 +294,10 @@ def test_processed_quality_score_is_at_least_raw_on_fixtures():
         processed_score = processed["qualityMetrics"]["qualityScore"]
         assert processed["qualityMetrics"]["avgSentenceLength"] >= 8
         assert processed_score >= raw_score
+
+
+def test_language_detection_is_deterministic():
+    from text_processor import detect_language
+
+    mixed = "hello pessoal today vamos falar about the castle e o museu da cidade"
+    assert len({detect_language(mixed, "en") for _ in range(20)}) == 1

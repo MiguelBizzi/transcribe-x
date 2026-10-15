@@ -14,6 +14,7 @@ export interface QualityMetrics {
   artifactRate?: number
   residualCommaCount?: number
   residualLetterCount?: number
+  punctuationRestored?: boolean
   qualityScore: number
 }
 

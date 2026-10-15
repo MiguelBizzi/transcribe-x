@@ -16,6 +16,7 @@ export const qualityMetricsSchema = z.object({
     artifactRate: z.number().optional(),
     residualCommaCount: z.number().optional(),
     residualLetterCount: z.number().optional(),
+    punctuationRestored: z.boolean().optional(),
     qualityScore: z.number(),
 })
 

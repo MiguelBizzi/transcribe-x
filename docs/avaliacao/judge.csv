@@ -1,0 +1,61 @@
+id,group,outcome,reason,model
+df487eb6-7723-4759-8fd3-48d406e911e4,punctuated,raw,Version A has clearer and more complete sentences without interruptions.,gpt-4o-mini
+c7346536-06f2-4a54-a2ed-abd836818207,punctuated,tie,"Both versions contain similar content and structure, with minor differences in speech noise.",gpt-4o-mini
+2953a98c-0f15-4b63-8149-e2adb7812515,auto,processed,Version A has clearer readability and removes speech noise.,gpt-4o-mini
+730428f1-7a59-41eb-914d-840306669f82,punctuated,processed,Version A has fewer speech hesitations and is more concise.,gpt-4o-mini
+dbdfb20e-9713-49c2-aaef-2495f9a1aed6,auto,processed,"Version B has better readability and structure, with proper punctuation and fewer speech disfluencies.",gpt-4o-mini
+de856ea8-f012-4607-af42-faee84bea854,punctuated,raw,Version A has a complete ending and maintains readability.,gpt-4o-mini
+29d7e332-7c25-4fc3-ad9f-b4638f3f4d5d,auto,processed,"Version B has better readability and structure, making it more suitable for a training dataset.",gpt-4o-mini
+a7ea5256-5aa1-46e2-bab9-ec0e3feed26e,auto,processed,"Version B has clearer sentences and is more structured, making it more readable.",gpt-4o-mini
+e839e9c7-a284-483a-bc70-8ab65e29ec5c,punctuated,raw,Version A has clearer sentence structure and is more readable.,gpt-4o-mini
+9f256e0e-1503-4d5e-a610-384bd6e5d520,auto,processed,Version A has clearer sentence structure and is more readable.,gpt-4o-mini
+2b6b3540-01b0-414d-bc2a-935e1115a356,auto,processed,Version A has readable sentences and is free of speech noise.,gpt-4o-mini
+bd10529b-8bfd-437c-98e0-27b2f141b010,auto,processed,Version B has better punctuation and readability.,gpt-4o-mini
+7e6f9c8f-6aa8-4926-98c3-6486a7796ad3,punctuated,tie,Both versions are identical and contain no speech noise.,gpt-4o-mini
+9404028c-3125-48db-b9ac-a4c5c96dc7e5,auto,processed,"Version A has clearer sentence structure and includes necessary punctuation, making it more readable.",gpt-4o-mini
+37f8a121-8e3c-44a1-835e-f79169467099,auto,processed,"Version B has better punctuation and structure, making it more readable.",gpt-4o-mini
+8880c49d-6555-482c-92ba-8f7a8f3eed88,auto,processed,"Version B has clearer structure and punctuation, making it more readable.",gpt-4o-mini
+c418d705-ae64-459d-8e62-11c2d4f0ddf9,punctuated,processed,Version B has fewer speech disfluencies and is more coherent.,gpt-4o-mini
+33aa833c-74cc-48ea-b248-5a0195de4a82,auto,processed,Version A has more readable sentences and is clearer without speech noise.,gpt-4o-mini
+14a7234b-81be-4e06-abfc-627b93901b06,auto,processed,"Version B has better readability and punctuation, making it more suitable for a language-model training dataset.",gpt-4o-mini
+f0c5ed2b-eea4-420d-a10f-2804affc3833,auto,processed,"Version B has clearer structure and readability, making it more suitable for training.",gpt-4o-mini
+b079e77c-145e-479e-8aec-68bbc340a331,auto,processed,Version A has readable sentences and is free of speech noise.,gpt-4o-mini
+0baf3550-54e5-4a30-8d01-1bcfd6459c10,auto,processed,Version A has more readable sentences and removes speech noise.,gpt-4o-mini
+03530e35-8fdd-4f98-84a0-be2ffd68fcc3,auto,processed,Version A has better readability and structure.,gpt-4o-mini
+d56602ed-0f5a-4fb7-af95-01fe7a79ca16,auto,processed,Version B has better readability and punctuation.,gpt-4o-mini
+fa21704b-b1a7-4150-a7af-296dd013b062,auto,processed,"Version B has better punctuation and structure, making it more readable.",gpt-4o-mini
+43695860-60c8-4ced-85ea-50c39865ef44,punctuated,processed,Version A has fewer speech disfluencies and is more coherent.,gpt-4o-mini
+2dcffccb-14ee-49ef-b4f0-1429e2b846e8,punctuated,processed,Version A is cleaner and free of speech noise.,gpt-4o-mini
+9f0cad03-c3e5-47f2-a227-fb77175dc20e,auto,processed,"Version B has better punctuation and readability, making it more suitable for a training dataset.",gpt-4o-mini
+0ecadcbc-ac1d-44b9-b6fa-38863dfbf228,punctuated,tie,Both versions are identical and contain readable sentences without speech noise.,gpt-4o-mini
+c98a9679-aafa-43e3-b287-9ccee6d89a26,auto,processed,Version B has clearer sentence structure and is more readable.,gpt-4o-mini
+69698e9e-ee8c-4c17-bcbb-34725033e32e,auto,processed,"Version B has clearer punctuation and structure, making it more readable.",gpt-4o-mini
+df2c10b8-aa0b-495a-b429-27efb5d8488f,punctuated,processed,Version A has fewer repetitions and is more concise.,gpt-4o-mini
+56bfa650-0c93-4e72-a47b-7393f66835a8,punctuated,processed,Version A has fewer speech noise elements and is more coherent.,gpt-4o-mini
+af2417d3-cbdd-48cc-9fdd-011a8f852cc2,auto,processed,"Version B has better readability and punctuation, making it clearer and more structured.",gpt-4o-mini
+c3a59693-7acf-43e3-bd8a-fd4bd2da5c9a,punctuated,tie,Both versions are identical and equally suitable.,gpt-4o-mini
+5cdcfada-fb55-4813-a26e-fe4b996faa87,auto,processed,"Version B has clearer sentence structure and punctuation, making it more readable.",gpt-4o-mini
+da591b8d-1d96-4397-9808-319113436c58,punctuated,processed,Version A has fewer speech noises and is more readable.,gpt-4o-mini
+0048947a-7a27-40b1-8949-06b92e154e76,punctuated,raw,Version B has consistent capitalization and is more polished.,gpt-4o-mini
+5df98194-b1af-4acf-a291-b2951a3a1c98,auto,processed,"Version B has better punctuation and structure, making it more readable.",gpt-4o-mini
+dfd7b07d-a4cf-4306-880a-75b3821b62dc,auto,processed,"Version B has better readability and punctuation, making it more suitable for a training dataset.",gpt-4o-mini
+a821db85-2116-4cd8-b1fa-fd51bab3e926,punctuated,processed,Version A is more complete and coherent without trailing off.,gpt-4o-mini
+f9168d55-2cd8-4005-8370-df8c6ab9f46b,auto,processed,Version A has more readable sentences and is free of speech noise.,gpt-4o-mini
+3e1970e2-e954-40e7-ba00-68b069049058,auto,processed,"Version B has better punctuation and readability, making it more suitable for a training dataset.",gpt-4o-mini
+6516a28d-c252-44ad-84ba-a9491cd7c284,auto,processed,"Version B has better punctuation and structure, making it more readable.",gpt-4o-mini
+08ed94f9-739b-48ff-b2cc-e036783c8740,auto,processed,"Version B has better readability and punctuation, making it more suitable for a language-model training dataset.",gpt-4o-mini
+264e2f6e-0dfc-47ff-b3ef-1d9c70ce2935,auto,processed,Version A has more readable sentences and is better structured.,gpt-4o-mini
+9e4f0483-280c-468c-9be0-c7cff5f95ec9,auto,processed,"Version B has better punctuation and structure, making it more readable.",gpt-4o-mini
+e3dfc58f-2cf9-4b0c-a748-bca4fd743573,auto,processed,"Version A has better readability and structure, making it more suitable for training.",gpt-4o-mini
+7c350d78-be53-4668-9e8a-6a025ebe4836,punctuated,raw,"Version A has a complete ending, making it more coherent.",gpt-4o-mini
+856789cf-3746-4636-ac5b-c7b0d80e752c,auto,processed,Version A has more readable sentences and fewer speech noise elements.,gpt-4o-mini
+f7b30520-442f-42bf-b7b9-1a0ae4624654,auto,processed,Version A has clearer readability and removes unnecessary speech noise.,gpt-4o-mini
+70e681de-a18e-465a-947b-7a2c8ec97ebc,auto,processed,Version B has clearer sentences and is free of speech noise.,gpt-4o-mini
+d7010651-6f59-4a4e-98e1-ef9a898fe058,punctuated,processed,Version B is more complete and maintains the context better.,gpt-4o-mini
+f5e33b91-a836-4779-9eb7-11cd9378fd77,punctuated,processed,Version A is cleaner and more readable without unnecessary speech noise.,gpt-4o-mini
+ea2f5e10-04f4-4701-b0ba-1ee18ad013b3,auto,processed,Version A has clearer readability and removes speech noise.,gpt-4o-mini
+5a1b7f90-2344-4fc5-b63e-e702dbd698ec,punctuated,tie,Both versions are identical and contain the same content.,gpt-4o-mini
+1f90e541-f6d3-48c3-ac1b-838e69c2f0a8,auto,processed,"Version B has better readability and punctuation, making it clearer and more structured.",gpt-4o-mini
+59176d37-a2e9-4aad-83ec-9eea07c865fe,punctuated,processed,"Version A has clearer punctuation and structure, making it more readable.",gpt-4o-mini
+5d2dfbde-48bd-43e5-83c2-8103eaafc16a,auto,processed,"Version B has clearer punctuation and structure, making it more readable.",gpt-4o-mini
+ebddc88c-ff4b-429c-b4ac-2518cbd709a4,auto,processed,Version A has clearer structure and fewer speech disfluencies.,gpt-4o-mini
