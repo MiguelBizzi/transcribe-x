@@ -68,4 +68,72 @@ describe('transcript error messages', () => {
             'Este vídeo não está disponível.',
         )
     })
+
+    it('describes an invalid video id or url without the raw exception', () => {
+        assert.equal(
+            transcriptErrorMessage({
+                error_type: 'invalid_video_id',
+                error: 'Invalid video ID format',
+            }),
+            'Identificador de vídeo inválido.',
+        )
+        assert.equal(
+            transcriptErrorMessage({
+                error_type: 'invalid_url',
+                error: 'Invalid YouTube URL',
+            }),
+            'Identificador de vídeo inválido.',
+        )
+    })
+
+    it('uses a generic message when the error type is unknown', () => {
+        assert.equal(
+            transcriptErrorMessage({
+                error_type: 'execution_error',
+                error: 'socket hang up',
+            }),
+            'Falha ao obter a legenda deste vídeo.',
+        )
+    })
+
+    it('treats IP block wording as a temporary limit', () => {
+        for (const error of [
+            'IpBlocked',
+            'RequestBlocked',
+            'YouTube is blocking requests from your IP',
+        ]) {
+            assert.equal(isRateLimitedResult({ error }), true, error)
+        }
+    })
+
+    it('does not treat an execution error without timeout as a limit', () => {
+        assert.equal(
+            isRateLimitedResult({
+                error_type: 'execution_error',
+                error: 'connection reset',
+            }),
+            false,
+        )
+    })
+
+    it('does not treat an empty message as a limit', () => {
+        assert.equal(isRateLimitErrorMessage(null), false)
+        assert.equal(isRateLimitErrorMessage(''), false)
+        assert.equal(isRateLimitErrorMessage(undefined), false)
+    })
+
+    it('recognizes the Portuguese limit phrase regardless of case', () => {
+        assert.equal(
+            isRateLimitErrorMessage(
+                'O YOUTUBE LIMITOU O ACESSO ÀS LEGENDAS.',
+            ),
+            true,
+        )
+        assert.equal(
+            isRateLimitErrorMessage(
+                'O YouTube limitou temporariamente o acesso às legendas.',
+            ),
+            true,
+        )
+    })
 })

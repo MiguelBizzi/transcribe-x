@@ -1,5 +1,13 @@
 import { google } from 'googleapis'
 import { env } from '../lib/env'
+import {
+    extractPlaylistId as parsePlaylistId,
+    extractVideoId as parseVideoId,
+    isPlaylistUrl as urlIsPlaylist,
+    isValidYouTubeUrl as urlIsValidVideo,
+    isVideoUrl as urlIsVideo,
+    parseIso8601Duration,
+} from './youtube-url'
 
 const youtube = google.youtube('v3')
 
@@ -47,51 +55,28 @@ export class YouTubeService {
      * Extract video ID from YouTube URL
      */
     extractVideoId(url: string): string | null {
-        const patterns = [
-            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-            /youtube\.com\/v\/([^&\n?#]+)/,
-        ]
-
-        for (const pattern of patterns) {
-            const match = url.match(pattern)
-            if (match) {
-                return match[1]
-            }
-        }
-
-        return null
+        return parseVideoId(url)
     }
 
     /**
      * Extract playlist ID from YouTube URL
      */
     extractPlaylistId(url: string): string | null {
-        const patterns = [
-            /(?:youtube\.com\/playlist\?list=|youtube\.com\/watch\?.*&list=)([^&\n?#]+)/,
-        ]
-
-        for (const pattern of patterns) {
-            const match = url.match(pattern)
-            if (match) {
-                return match[1]
-            }
-        }
-
-        return null
+        return parsePlaylistId(url)
     }
 
     /**
      * Check if URL is a playlist URL
      */
     isPlaylistUrl(url: string): boolean {
-        return this.extractPlaylistId(url) !== null
+        return urlIsPlaylist(url)
     }
 
     /**
      * Check if URL is a video URL
      */
     isVideoUrl(url: string): boolean {
-        return this.extractVideoId(url) !== null
+        return urlIsVideo(url)
     }
 
     /**
@@ -308,21 +293,14 @@ export class YouTubeService {
      * Parse ISO 8601 duration to seconds
      */
     private parseDuration(duration: string): number {
-        const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
-        if (!match) return 0
-
-        const hours = parseInt(match[1] || '0')
-        const minutes = parseInt(match[2] || '0')
-        const seconds = parseInt(match[3] || '0')
-
-        return hours * 3600 + minutes * 60 + seconds
+        return parseIso8601Duration(duration)
     }
 
     /**
      * Validate if a string is a valid YouTube URL
      */
     isValidYouTubeUrl(url: string): boolean {
-        return this.extractVideoId(url) !== null
+        return urlIsValidVideo(url)
     }
 }
 

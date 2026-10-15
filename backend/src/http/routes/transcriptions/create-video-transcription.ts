@@ -9,7 +9,7 @@ import { BadRequestError } from '../_errors/bad-request-error'
 import { getCurrentUser } from '../../middlewares/auth'
 import { qualityMetricsSchema } from './quality-metrics-schema'
 import { TranscriptionStatus, TranscriptionType } from '@/generated/prisma/client'
-import { transcriptErrorMessage } from '@/services/transcript-errors'
+import { singleVideoTranscriptOutcome } from '@/services/transcript-outcome'
 
 export async function createVideoTranscription(app: FastifyInstance) {
     app.withTypeProvider<ZodTypeProvider>().post(
@@ -92,33 +92,11 @@ export async function createVideoTranscription(app: FastifyInstance) {
                 const transcriptResult =
                     await transcriptionService.getTranscriptById(videoDetails.id)
 
-                let status: TranscriptionStatus
-                let content: string | null = null
-                let errorMessage: string | null = null
-                let wordCount = 0
-                let language: string | undefined
-                let timestamps: Array<{
-                    text: string
-                    start: number
-                    duration: number
-                }> | null = transcriptResult.timestamps ?? null
-                let isGenerated = false
-
-                if (
-                    transcriptResult.success &&
-                    transcriptResult.raw_text &&
-                    transcriptResult.raw_text.trim() !== ''
-                ) {
-                    status = TranscriptionStatus.COMPLETED
-                    content = transcriptResult.raw_text
-                    wordCount = transcriptResult.word_count || 0
-                    language = transcriptResult.language_code
-                    isGenerated = Boolean(transcriptResult.is_generated)
-                } else {
-                    status = TranscriptionStatus.ERROR
-                    errorMessage = transcriptErrorMessage(transcriptResult)
-                    timestamps = null
-                }
+                const outcome = singleVideoTranscriptOutcome(transcriptResult)
+                const status =
+                    outcome.status === 'COMPLETED'
+                        ? TranscriptionStatus.COMPLETED
+                        : TranscriptionStatus.ERROR
 
                 const transcription = await prisma.transcription.create({
                     data: {
@@ -128,12 +106,14 @@ export async function createVideoTranscription(app: FastifyInstance) {
                         type: TranscriptionType.VIDEO,
                         thumbnail: videoDetails.thumbnail,
                         status,
-                        content,
+                        content: outcome.content,
                         duration: videoDetails.duration,
-                        wordCount: wordCount > 0 ? wordCount : null,
-                        language: language || 'en',
-                        timestamps: timestamps ? (timestamps as any) : null,
-                        errorMessage,
+                        wordCount: outcome.storedWordCount,
+                        language: outcome.language,
+                        timestamps: outcome.timestamps
+                            ? (outcome.timestamps as any)
+                            : null,
+                        errorMessage: outcome.errorMessage,
                         processingStartedAt: null,
                         completedAt:
                             status === TranscriptionStatus.COMPLETED
@@ -147,13 +127,13 @@ export async function createVideoTranscription(app: FastifyInstance) {
                     null
                 let isProcessed = false
 
-                if (status === TranscriptionStatus.COMPLETED && content) {
+                if (status === TranscriptionStatus.COMPLETED && outcome.content) {
                     const processed =
                         await textQualityService.processAndPersist(
                             transcription.id,
-                            content,
-                            language || 'en',
-                            Boolean(isGenerated),
+                            outcome.content,
+                            outcome.language,
+                            outcome.isGenerated,
                         )
 
                     if (processed) {

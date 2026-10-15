@@ -4,6 +4,15 @@ import {
     executePythonScript,
     resolveScriptPath,
 } from '@/lib/python-runner'
+import {
+    documentDedupAssignments,
+    documentDedupSegments,
+    rebuildDeduplicatedText,
+    requireDedupPayload,
+    requireVideoDedupSource,
+    sentenceSegments,
+    splitSentences,
+} from './dedup-rules'
 
 export type DedupScope = 'playlist' | 'video' | 'channel'
 
@@ -48,15 +57,6 @@ export interface DedupResult {
     keptCount: number
     duplicateCount: number
     sentencesRemoved?: number
-}
-
-const SENTENCE_RE = /(?<=[.!?])\s+/
-
-function splitSentences(text: string): string[] {
-    return text
-        .split(SENTENCE_RE)
-        .map((sentence) => sentence.trim())
-        .filter((sentence) => sentence.length > 0)
 }
 
 export class TextDedupService {
@@ -135,33 +135,13 @@ export class TextDedupService {
             throw new Error('Transcription not found')
         }
 
-        const source =
-            transcription.processedContent?.trim() ||
-            transcription.content?.trim() ||
-            ''
-
-        if (!source) {
-            throw new Error('Transcription has no content to deduplicate')
-        }
-
+        const source = requireVideoDedupSource(transcription)
         const sentences = splitSentences(source)
-        const segments = sentences.map((text, index) => ({
-            id: `${transcription.id}:${index}`,
-            text,
-        }))
+        const segments = sentenceSegments(transcription.id, sentences)
 
         const result = await this.runDeduplicator(segments)
-        const duplicateIndexes = new Set(
-            result.duplicates.map((duplicate) => {
-                const [, index] = duplicate.id.split(':')
-                return Number(index)
-            }),
-        )
-
-        const keptSentences = sentences.filter(
-            (_, index) => !duplicateIndexes.has(index),
-        )
-        const processedContent = keptSentences.join(' ')
+        const rebuilt = rebuildDeduplicatedText(sentences, result.duplicates)
+        const processedContent = rebuilt.processedContent
 
         await prisma.transcription.update({
             where: { id: transcription.id },
@@ -179,7 +159,7 @@ export class TextDedupService {
             groups: result.groups,
             keptCount: 1,
             duplicateCount: 0,
-            sentencesRemoved: duplicateIndexes.size,
+            sentencesRemoved: rebuilt.sentencesRemoved,
         }
     }
 
@@ -191,37 +171,16 @@ export class TextDedupService {
         }>,
         scope: Exclude<DedupScope, 'video'>,
     ): Promise<DedupResult> {
-        const segments = transcriptions
-            .map((transcription) => ({
-                id: transcription.id,
-                text:
-                    transcription.processedContent?.trim() ||
-                    transcription.content?.trim() ||
-                    '',
-            }))
-            .filter((segment) => segment.text.length > 0)
-
+        const segments = documentDedupSegments(transcriptions)
         const result = await this.runDeduplicator(segments)
-        const duplicateById = new Map(
-            result.duplicates.map((duplicate) => [duplicate.id, duplicate]),
-        )
-        const groupIdByMember = new Map<string, string>()
+        const assignments = documentDedupAssignments(transcriptions, result)
 
-        for (const group of result.groups) {
-            for (const member of group.members) {
-                groupIdByMember.set(member.id, group.groupId)
-            }
-        }
-
-        for (const transcription of transcriptions) {
-            const duplicate = duplicateById.get(transcription.id)
+        for (const assignment of assignments) {
             await prisma.transcription.update({
-                where: { id: transcription.id },
+                where: { id: assignment.id },
                 data: {
-                    deduplicationStatus: duplicate ? 'duplicate' : 'kept',
-                    dedupGroupId:
-                        groupIdByMember.get(transcription.id) ??
-                        transcription.id,
+                    deduplicationStatus: assignment.deduplicationStatus,
+                    dedupGroupId: assignment.dedupGroupId,
                 },
             })
         }
@@ -259,15 +218,7 @@ export class TextDedupService {
             { timeout: this.timeout },
         )
 
-        if (!response.success || !response.stats) {
-            throw new Error(response.error || 'Deduplication failed')
-        }
-
-        return {
-            groups: response.groups ?? [],
-            duplicates: response.duplicates ?? [],
-            stats: response.stats,
-        }
+        return requireDedupPayload(response)
     }
 }
 

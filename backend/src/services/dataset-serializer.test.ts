@@ -151,4 +151,44 @@ describe('serializeDataset', () => {
         assert.match(xml, /recordCount="0"/)
         assert.equal(xml.match(/<record>/g), null)
     })
+
+    it('quotes CSV cells that contain commas, quotes, or line breaks', () => {
+        const tricky: DatasetRecord = {
+            ...curated,
+            title: 'say "hi"\nnext',
+        }
+        const { content } = serializeDataset([tricky], 'csv', 'curated')
+        assert.match(content, /"say ""hi""\nnext"/)
+    })
+
+    it('strips XML control characters and escapes markup', () => {
+        const tricky: DatasetRecord = {
+            ...curated,
+            title: "it's <ok> &\u0001",
+        }
+        const xml = serializeDataset([tricky], 'xml', 'curated').content
+        assert.match(xml, /<title>it&apos;s &lt;ok&gt; &amp;<\/title>/)
+        assert.equal(xml.includes('\u0001'), false)
+    })
+
+    it('writes null in Markdown for a non-finite number', () => {
+        const tricky: DatasetRecord = {
+            ...curated,
+            qualityScore: Number.POSITIVE_INFINITY,
+        }
+        const md = serializeDataset([tricky], 'md', 'curated').content
+        assert.match(md, /qualityScore: null/)
+    })
+
+    it('keeps an empty TXT text field delimited', () => {
+        const empty: DatasetRecord = { ...curated, text: '' }
+        const txt = serializeDataset([empty], 'txt', 'raw').content
+        assert.match(txt, /text<<<\n>>>/)
+    })
+
+    it('emits only the header when a TXT export has no records', () => {
+        const txt = serializeDataset([], 'txt', 'raw').content
+        assert.equal(txt, '# dataset: raw\n# records: 0')
+        assert.doesNotMatch(txt, /<<<RECORD>>>/)
+    })
 })

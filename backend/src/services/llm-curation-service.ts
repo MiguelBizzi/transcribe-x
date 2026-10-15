@@ -5,6 +5,15 @@ import {
     executePythonScript,
     resolveScriptPath,
 } from '@/lib/python-runner'
+import {
+    assertCurationText,
+    assertSingleCurationReady,
+    curationScoreFromOverall,
+    curationSourceText,
+    curationTimeoutMs,
+    shouldSkipPlaylistCuration,
+    unavailableCurationMessage,
+} from './curation-rules'
 
 export type CurationRecommendation = 'sft_example' | 'pretraining' | 'discard'
 
@@ -39,22 +48,12 @@ export class LlmCurationService {
         this.scriptPath = resolveScriptPath('llm_curator.py')
     }
 
-    private timeoutForText(text: string): number {
-        const estimatedChunks = Math.min(
-            10,
-            Math.max(1, Math.ceil(text.length / 6000)),
-        )
-        return Math.min(120000 + estimatedChunks * 90000, 900000)
-    }
-
     async curateText(
         text: string,
         title: string,
         languageCode?: string | null,
     ): Promise<LlmCurationData> {
-        if (!text.trim()) {
-            throw new Error('Text is required for curation')
-        }
+        assertCurationText(text)
 
         const response = await executePythonScript<
             {
@@ -80,15 +79,11 @@ export class LlmCurationService {
                 ollama_base_url: env.OLLAMA_BASE_URL,
                 ollama_model: env.OLLAMA_MODEL,
             },
-            { timeout: this.timeoutForText(text) },
+            { timeout: curationTimeoutMs(text) },
         )
 
         if (!response.success || !response.curation) {
-            throw new Error(
-                response.error
-                    ? `Provedor de LLM indisponível: ${response.error}`
-                    : 'Provedor de LLM indisponível. Verifique a chave da API ou o Ollama local.',
-            )
+            throw new Error(unavailableCurationMessage(response.error))
         }
 
         return response.curation
@@ -114,20 +109,11 @@ export class LlmCurationService {
             throw new Error('Transcription not found')
         }
 
-        if (transcription.deduplicationStatus === 'pending') {
-            throw new Error(
-                'Remova ou marque duplicatas antes da curadoria LLM.',
-            )
-        }
-
-        const text =
-            transcription.processedContent?.trim() ||
-            transcription.content?.trim() ||
-            ''
-
-        if (!text) {
-            throw new Error('Transcription has no content to curate')
-        }
+        const text = curationSourceText(
+            transcription.processedContent,
+            transcription.content,
+        )
+        assertSingleCurationReady(transcription.deduplicationStatus, text)
 
         const curation = await this.curateText(
             text,
@@ -135,7 +121,7 @@ export class LlmCurationService {
             transcription.language,
         )
 
-        const llmCurationScore = Number((curation.overall / 10).toFixed(4))
+        const llmCurationScore = curationScoreFromOverall(curation.overall)
 
         await prisma.transcription.update({
             where: { id: transcription.id },
@@ -184,9 +170,10 @@ export class LlmCurationService {
 
         for (const transcription of transcriptions) {
             if (
-                transcription.deduplicationStatus === 'pending' ||
-                transcription.deduplicationStatus === 'duplicate' ||
-                transcription.llmCurationData
+                shouldSkipPlaylistCuration(
+                    transcription.deduplicationStatus,
+                    transcription.llmCurationData,
+                )
             ) {
                 skipped += 1
                 continue
