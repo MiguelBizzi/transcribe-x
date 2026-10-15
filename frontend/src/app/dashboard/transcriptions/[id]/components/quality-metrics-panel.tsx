@@ -111,12 +111,6 @@ function dedupLabel(status: string) {
   return 'Pendente'
 }
 
-function recommendationLabel(recommendation: LlmCurationData['recommendation']) {
-  if (recommendation === 'sft_example') return 'SFT'
-  if (recommendation === 'pretraining') return 'Pré-treino'
-  return 'Descartar'
-}
-
 function pipelineState(transcription: TranscriptionDetail): {
   completed: PipelineStep[]
   current: PipelineStep
@@ -260,12 +254,7 @@ function QualitySnapshot({
 
       {curation ? (
         <div className="space-y-3 rounded-lg border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium">Curadoria LLM</span>
-            <Badge variant="secondary">
-              {recommendationLabel(curation.recommendation)}
-            </Badge>
-          </div>
+          <span className="text-sm font-medium">Curadoria LLM</span>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-lg border p-3">
               <MetricTitle label="Coerência" hint={METRIC_HINTS.coherence} />

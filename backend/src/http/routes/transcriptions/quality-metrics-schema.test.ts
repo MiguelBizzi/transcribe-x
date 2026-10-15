@@ -24,7 +24,6 @@ const curation = {
     richness: 6,
     factuality: 8,
     overall: 7,
-    recommendation: 'pretraining',
     rationale: 'Texto contínuo.',
     provider: 'openai',
     model: 'gpt-4o-mini',
@@ -42,29 +41,13 @@ describe('qualityMetricsSchema', () => {
 })
 
 describe('llmCurationDataSchema', () => {
-    it('accepts the three recommendations', () => {
-        for (const recommendation of [
-            'sft_example',
-            'pretraining',
-            'discard',
-        ]) {
-            assert.equal(
-                llmCurationDataSchema.safeParse({ ...curation, recommendation })
-                    .success,
-                true,
-                recommendation,
-            )
-        }
-    })
-
-    it('rejects a recommendation outside the enum', () => {
-        assert.equal(
-            llmCurationDataSchema.safeParse({
-                ...curation,
-                recommendation: 'rewrite',
-            }).success,
-            false,
-        )
+    it('drops the recommendation older curations still carry', () => {
+        const parsed = llmCurationDataSchema.safeParse({
+            ...curation,
+            recommendation: 'discard',
+        })
+        assert.equal(parsed.success, true)
+        assert.equal(parsed.success && 'recommendation' in parsed.data, false)
     })
 
     it('rejects curation that is missing the rationale', () => {

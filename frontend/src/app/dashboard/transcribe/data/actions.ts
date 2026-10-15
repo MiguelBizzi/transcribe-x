@@ -324,7 +324,6 @@ export const exportFineTuningAction = actionClient
         mimeType: string
         recordCount: number
         skippedDuplicates: number
-        skippedDiscarded: number
         skippedFailed: number
         content: string
       }>(`/exports/fine-tuning?${params.toString()}`)
@@ -335,7 +334,6 @@ export const exportFineTuningAction = actionClient
         mimeType: response.mimeType,
         recordCount: response.recordCount,
         skippedDuplicates: response.skippedDuplicates,
-        skippedDiscarded: response.skippedDiscarded,
         skippedFailed: response.skippedFailed,
         content: response.content,
       }

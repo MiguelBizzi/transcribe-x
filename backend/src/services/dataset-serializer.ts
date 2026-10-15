@@ -14,7 +14,6 @@ export const DATASET_FIELDS = [
     'mtldScore',
     'mattrScore',
     'llmCurationScore',
-    'recommendation',
     'coherence',
     'richness',
     'factuality',
@@ -49,7 +48,6 @@ export interface DatasetRecord {
     mtldScore: number | null
     mattrScore: number | null
     llmCurationScore: number | null
-    recommendation: string | null
     coherence: number | null
     richness: number | null
     factuality: number | null
@@ -90,7 +88,6 @@ export function canonicalRecord(record: DatasetRecord): DatasetRecord {
         mtldScore: record.mtldScore,
         mattrScore: record.mattrScore,
         llmCurationScore: record.llmCurationScore,
-        recommendation: record.recommendation,
         coherence: record.coherence,
         richness: record.richness,
         factuality: record.factuality,

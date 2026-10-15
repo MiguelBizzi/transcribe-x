@@ -34,7 +34,6 @@ export async function exportFineTuning(app: FastifyInstance) {
                         mimeType: z.string(),
                         recordCount: z.number(),
                         skippedDuplicates: z.number(),
-                        skippedDiscarded: z.number(),
                         skippedFailed: z.number(),
                         content: z.string(),
                     }),

@@ -6,22 +6,15 @@ import {
 
 const NOT_ERROR_MESSAGE =
     'Só é possível tentar novamente uma transcrição com erro.'
-const RATE_LIMIT_RETRY_MESSAGE =
-    'Vídeos bloqueados pelo limite do YouTube não podem ser tentados de novo.'
 const PLAYLIST_PROCESSING_MESSAGE = 'A playlist ainda está em processamento.'
 const NOTHING_TO_RETRY_MESSAGE = 'Nenhum vídeo pendente para tentar novamente.'
 
 export function singleRetryDecision(input: {
     status: string
-    errorMessage?: string | null
     playlistStillProcessing: boolean
 }): { outcome: 'started' } | { outcome: 'rejected'; message: string } {
     if (input.status !== 'ERROR') {
         return { outcome: 'rejected', message: NOT_ERROR_MESSAGE }
-    }
-
-    if (isRateLimitErrorMessage(input.errorMessage)) {
-        return { outcome: 'rejected', message: RATE_LIMIT_RETRY_MESSAGE }
     }
 
     if (input.playlistStillProcessing) {
@@ -31,29 +24,22 @@ export function singleRetryDecision(input: {
     return { outcome: 'started' }
 }
 
-export function retryBatchDecision<T extends { errorMessage?: string | null }>(
+export function retryBatchDecision<T>(
     queried: T[],
 ):
     | { outcome: 'rejected'; message: string }
     | { outcome: 'started'; retried: number; retryable: T[] } {
-    const retryable = queried.filter(
-        (item) => !isRateLimitErrorMessage(item.errorMessage),
-    )
-
-    if (retryable.length === 0) {
+    if (queried.length === 0) {
         return {
             outcome: 'rejected',
-            message:
-                queried.length > 0
-                    ? RATE_LIMIT_RETRY_MESSAGE
-                    : NOTHING_TO_RETRY_MESSAGE,
+            message: NOTHING_TO_RETRY_MESSAGE,
         }
     }
 
     return {
         outcome: 'started',
         retried: queried.length,
-        retryable,
+        retryable: queried,
     }
 }
 

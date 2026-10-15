@@ -55,24 +55,13 @@ export function PlaylistCurationPanel({
   const [lastExportCounts, setLastExportCounts] = useState<{
     recordCount: number
     skippedDuplicates: number
-    skippedDiscarded: number
     skippedFailed: number
   } | null>(null)
-  const discardedCount = videos.filter(
-    (video) => video.llmCurationData?.recommendation === 'discard',
-  ).length
   const previewSkippedFailed = videos.filter(
     (video) => video.status === 'ERROR',
   ).length
-  const previewSkippedDiscarded = dataset === 'curated' ? discardedCount : 0
   const previewRecordCount = videos.filter((video) => {
     if (video.status !== 'COMPLETED') return false
-    if (
-      dataset === 'curated' &&
-      video.llmCurationData?.recommendation === 'discard'
-    ) {
-      return false
-    }
     if (dataset === 'curated' && video.llmCurationScore == null) return false
     const text =
       dataset === 'raw'
@@ -278,14 +267,12 @@ export function PlaylistCurationPanel({
           </div>
           <p className="text-muted-foreground text-xs">
             Antes do download: {previewRecordCount} registros,{' '}
-            {previewSkippedFailed} vídeos com falha omitidos,{' '}
-            {previewSkippedDiscarded} descartes omitidos.
+            {previewSkippedFailed} vídeos com falha omitidos.
           </p>
           {lastExportCounts && (
             <p className="text-muted-foreground text-xs">
               Último export: {lastExportCounts.recordCount} registros,{' '}
-              {lastExportCounts.skippedFailed} vídeos com falha omitidos,{' '}
-              {lastExportCounts.skippedDiscarded} descartes omitidos.
+              {lastExportCounts.skippedFailed} vídeos com falha omitidos.
             </p>
           )}
           <Button

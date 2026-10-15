@@ -12,7 +12,6 @@ const curation = {
     richness: 6,
     factuality: 8,
     overall: 7.5,
-    recommendation: 'pretraining',
     rationale: 'Coerente.',
     provider: 'openai',
     model: 'gpt-4o-mini',
@@ -104,17 +103,16 @@ describe('assembleExportRecords', () => {
         assert.equal(included.records.length, 1)
     })
 
-    it('drops a curated row that has no curation without counting it as discarded', () => {
+    it('leaves a row without curation out of the curated dataset', () => {
         const assembled = assembleExportRecords(
             [row({ llmCurationData: null })],
             { ...baseQuery, dataset: 'curated' },
         )
         assert.equal(assembled.records.length, 0)
-        assert.equal(assembled.skippedDiscarded, 0)
         assert.equal(assembled.skippedFailed, 0)
     })
 
-    it('counts a discarded recommendation separately', () => {
+    it('keeps every curated row, whatever older curation data recommended', () => {
         const assembled = assembleExportRecords(
             [
                 row({
@@ -123,8 +121,9 @@ describe('assembleExportRecords', () => {
             ],
             { ...baseQuery, dataset: 'curated' },
         )
-        assert.equal(assembled.skippedDiscarded, 1)
-        assert.equal(assembled.records.length, 0)
+        assert.equal(assembled.records.length, 1)
+        assert.equal('recommendation' in assembled.records[0], false)
+        assert.equal('skippedDiscarded' in assembled, false)
     })
 
     it('copies curation scores and the dedup group onto the record', () => {
@@ -142,7 +141,6 @@ describe('assembleExportRecords', () => {
         assert.equal(record.curationModel, 'gpt-4o-mini')
         assert.equal(record.curationChunkCount, 2)
         assert.equal(record.qualityScore, 0.8)
-        assert.equal(record.recommendation, 'pretraining')
     })
 })
 

@@ -17,7 +17,6 @@ import { RetryFailedPlaylistButton } from '@/app/dashboard/transcribe/components
 import { RetryTranscriptionButton } from '@/app/dashboard/transcribe/components/retry-transcription-button'
 import { formatQualityScore, getQualityTone } from '@/utils/format-duration'
 import { formatStatus } from '@/utils/format-status'
-import { isRateLimitError } from '@/utils/rate-limit-error'
 import { cn } from '@/lib/utils'
 
 interface PlaylistVideoListProps {
@@ -49,10 +48,8 @@ export function PlaylistVideoList({
   processing = false,
 }: PlaylistVideoListProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null)
-  const retryableFailed = videos.filter(
-    (video) =>
-      video.status.toUpperCase() === 'ERROR' &&
-      !isRateLimitError(video.errorMessage),
+  const failedCount = videos.filter(
+    (video) => video.status.toUpperCase() === 'ERROR',
   ).length
   const currentProcessingId = videos.find(
     (video) => video.status.toUpperCase() === 'PROCESSING',
@@ -72,7 +69,6 @@ export function PlaylistVideoList({
           processedContent: video.processedContent,
           isProcessed: video.isProcessed,
           llmCurationScore: video.llmCurationScore,
-          recommendation: video.llmCurationData?.recommendation,
         }),
         format,
         includeDuplicates: true,
@@ -107,7 +103,7 @@ export function PlaylistVideoList({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Vídeos</CardTitle>
-        {(retryableFailed > 0 || processing) && (
+        {(failedCount > 0 || processing) && (
           <RetryFailedPlaylistButton playlistId={playlistId} />
         )}
       </CardHeader>
@@ -182,9 +178,7 @@ export function PlaylistVideoList({
               <Button asChild size="sm" variant="outline">
                 <Link href={`/dashboard/transcriptions/${video.id}`}>Ver</Link>
               </Button>
-              {video.status.toUpperCase() === 'ERROR' &&
-                !processing &&
-                !isRateLimitError(video.errorMessage) && (
+              {video.status.toUpperCase() === 'ERROR' && !processing && (
                 <RetryTranscriptionButton id={video.id} />
               )}
               {video.status.toUpperCase() === 'COMPLETED' &&

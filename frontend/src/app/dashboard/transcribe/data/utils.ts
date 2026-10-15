@@ -77,10 +77,8 @@ export function furthestDatasetStage(input: {
   processedContent?: string | null
   isProcessed?: boolean
   llmCurationScore?: number | null
-  recommendation?: string | null
 }): DatasetStage {
-  const discarded = input.recommendation === 'discard'
-  if (input.llmCurationScore != null && !discarded) return 'curated'
+  if (input.llmCurationScore != null) return 'curated'
   if (input.isProcessed || input.processedContent?.trim()) return 'processed'
   return 'raw'
 }
@@ -90,7 +88,6 @@ export function furthestPlaylistStage(
     processedContent?: string | null
     isProcessed?: boolean
     llmCurationScore?: number | null
-    llmCurationData?: { recommendation?: string | null } | null
   }[],
 ): DatasetStage {
   let stage: DatasetStage = 'raw'
@@ -105,7 +102,6 @@ export function furthestPlaylistStage(
       processedContent: video.processedContent,
       isProcessed: video.isProcessed,
       llmCurationScore: video.llmCurationScore,
-      recommendation: video.llmCurationData?.recommendation,
     })
     if (rank[candidate] > rank[stage]) stage = candidate
   }

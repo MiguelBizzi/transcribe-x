@@ -13,7 +13,6 @@ import { getPlaylistTranscriptions } from '../data/playlist-transcriptions'
 import { PlaylistJobActions } from './playlist-job-actions'
 import Link from 'next/link'
 import { formatPlaylistStatus } from '@/utils/format-status'
-import { isRateLimitError } from '@/utils/rate-limit-error'
 import { RetryFailedPlaylistButton } from './retry-failed-playlist-button'
 
 const getStatusIconSafe = (status: string) => {
@@ -114,11 +113,6 @@ export async function PlaylistTranscriptionJobs() {
               const processingVideos = videos.filter(
                 (video) => video.status.toUpperCase() === 'PROCESSING',
               ).length
-              const retryableFailed = videos.filter(
-                (video) =>
-                  video.status.toUpperCase() === 'ERROR' &&
-                  !isRateLimitError(video.errorMessage),
-              ).length
               const showDownloads =
                 videos.length === 0
                   ? isCompleted(playlist.status)
@@ -202,7 +196,7 @@ export async function PlaylistTranscriptionJobs() {
                     <PlaylistJobActions playlist={playlist} />
                   )}
 
-                  {(retryableFailed > 0 || processingVideos > 0) && (
+                  {(failedVideos > 0 || processingVideos > 0) && (
                       <RetryFailedPlaylistButton playlistId={playlist.id} />
                     )}
                 </div>

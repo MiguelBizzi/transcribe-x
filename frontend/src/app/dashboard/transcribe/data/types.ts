@@ -17,14 +17,11 @@ export interface QualityMetrics {
   qualityScore: number
 }
 
-export type CurationRecommendation = 'sft_example' | 'pretraining' | 'discard'
-
 export interface LlmCurationData {
   coherence: number
   richness: number
   factuality: number
   overall: number
-  recommendation: CurationRecommendation
   rationale: string
   provider: string
   model: string

@@ -16,7 +16,6 @@ describe('singleRetryDecision', () => {
     it('only retries a transcription that is in error', () => {
         const decision = singleRetryDecision({
             status: 'COMPLETED',
-            errorMessage: null,
             playlistStillProcessing: false,
         })
         assert.equal(decision.outcome, 'rejected')
@@ -25,22 +24,19 @@ describe('singleRetryDecision', () => {
         }
     })
 
-    it('refuses a video that was blocked by the YouTube limit', () => {
-        const decision = singleRetryDecision({
-            status: 'ERROR',
-            errorMessage: RATE_LIMIT_MESSAGE,
-            playlistStillProcessing: false,
-        })
-        assert.equal(decision.outcome, 'rejected')
-        if (decision.outcome === 'rejected') {
-            assert.match(decision.message, /não podem ser tentados de novo/)
-        }
+    it('retries a video blocked by the YouTube limit or a server error', () => {
+        assert.deepEqual(
+            singleRetryDecision({
+                status: 'ERROR',
+                playlistStillProcessing: false,
+            }),
+            { outcome: 'started' },
+        )
     })
 
     it('refuses a retry while the playlist is still processing', () => {
         const decision = singleRetryDecision({
             status: 'ERROR',
-            errorMessage: 'Este vídeo não possui legendas disponíveis.',
             playlistStillProcessing: true,
         })
         assert.equal(decision.outcome, 'rejected')
@@ -48,27 +44,21 @@ describe('singleRetryDecision', () => {
             assert.match(decision.message, /ainda está em processamento/)
         }
     })
-
-    it('starts a retry for an ordinary error', () => {
-        assert.deepEqual(
-            singleRetryDecision({
-                status: 'ERROR',
-                errorMessage: 'Este vídeo não possui legendas disponíveis.',
-                playlistStillProcessing: false,
-            }),
-            { outcome: 'started' },
-        )
-    })
 })
 
 describe('retryBatchDecision', () => {
-    it('rejects a batch whose remaining rows are all rate limited', () => {
+    it('retries a batch whose rows failed because of the YouTube limit', () => {
         const decision = retryBatchDecision([
             { id: 'a', errorMessage: RATE_LIMIT_MESSAGE },
+            { id: 'b', errorMessage: RATE_LIMIT_CANCELLED_MESSAGE },
         ])
-        assert.equal(decision.outcome, 'rejected')
-        if (decision.outcome === 'rejected') {
-            assert.match(decision.message, /não podem ser tentados de novo/)
+        assert.equal(decision.outcome, 'started')
+        if (decision.outcome === 'started') {
+            assert.equal(decision.retried, 2)
+            assert.deepEqual(
+                decision.retryable.map((row) => row.id),
+                ['a', 'b'],
+            )
         }
     })
 
@@ -80,18 +70,19 @@ describe('retryBatchDecision', () => {
         }
     })
 
-    it('counts every queried row, including ones that are not retried', () => {
+    it('retries every failed row, including rate limit and server errors', () => {
         const decision = retryBatchDecision([
             { id: 'blocked', errorMessage: RATE_LIMIT_CANCELLED_MESSAGE },
             { id: 'retry', errorMessage: 'Este vídeo não está disponível.' },
+            { id: 'server', errorMessage: 'Falha ao obter a legenda deste vídeo.' },
             { id: 'processing', errorMessage: null },
         ])
         assert.equal(decision.outcome, 'started')
         if (decision.outcome === 'started') {
-            assert.equal(decision.retried, 3)
+            assert.equal(decision.retried, 4)
             assert.deepEqual(
                 decision.retryable.map((row) => row.id),
-                ['retry', 'processing'],
+                ['blocked', 'retry', 'server', 'processing'],
             )
         }
     })

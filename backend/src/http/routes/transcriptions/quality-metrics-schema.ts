@@ -24,7 +24,6 @@ export const llmCurationDataSchema = z.object({
     richness: z.number(),
     factuality: z.number(),
     overall: z.number(),
-    recommendation: z.enum(['sft_example', 'pretraining', 'discard']),
     rationale: z.string(),
     provider: z.string(),
     model: z.string(),

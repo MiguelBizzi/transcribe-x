@@ -32,7 +32,6 @@ export class FineTuningExportService {
         mimeType: string
         recordCount: number
         skippedDuplicates: number
-        skippedDiscarded: number
         skippedFailed: number
         content: string
     }> {
@@ -80,7 +79,6 @@ export class FineTuningExportService {
             mimeType: serialized.mimeType,
             recordCount: assembled.records.length,
             skippedDuplicates: assembled.skippedDuplicates,
-            skippedDiscarded: assembled.skippedDiscarded,
             skippedFailed: assembled.skippedFailed,
             content: serialized.content,
         }

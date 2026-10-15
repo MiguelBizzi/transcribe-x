@@ -20,7 +20,6 @@ const curated: DatasetRecord = {
     mtldScore: 42.5,
     mattrScore: 0.73,
     llmCurationScore: 0.7,
-    recommendation: 'pretraining',
     coherence: 7,
     richness: 6,
     factuality: 8,
@@ -45,7 +44,6 @@ const pending: DatasetRecord = {
     mtldScore: 50,
     mattrScore: 0.8,
     llmCurationScore: null,
-    recommendation: null,
     coherence: null,
     richness: null,
     factuality: null,
@@ -88,7 +86,7 @@ describe('serializeDataset', () => {
         assert.equal(parsed[0].curationRationale, 'Texto contínuo e coerente.')
         assert.equal(parsed[0].dedupGroupId, 'group-1')
         assert.equal(parsed[0].text, 'Prosa processada da aula.')
-        assert.equal(parsed[1].recommendation, null)
+        assert.equal(parsed[1].coherence, null)
         assert.equal(parsed[1].curationChunkCount, null)
     })
 

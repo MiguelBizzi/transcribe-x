@@ -15,14 +15,11 @@ import {
     unavailableCurationMessage,
 } from './curation-rules'
 
-export type CurationRecommendation = 'sft_example' | 'pretraining' | 'discard'
-
 export interface LlmCurationData {
     coherence: number
     richness: number
     factuality: number
     overall: number
-    recommendation: CurationRecommendation
     rationale: string
     provider: string
     model: string
@@ -182,8 +179,12 @@ export class LlmCurationService {
             try {
                 await this.curateTranscription(transcription.id, userId)
                 curated += 1
-            } catch {
+            } catch (error) {
                 failed += 1
+                console.error(
+                    `Curation failed for transcription ${transcription.id}:`,
+                    error instanceof Error ? error.message : error,
+                )
             }
         }
 

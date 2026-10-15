@@ -5,7 +5,6 @@ export interface ExportCuration {
     richness: number
     factuality: number
     overall: number
-    recommendation: string
     rationale: string
     provider: string
     model: string
@@ -90,12 +89,10 @@ export function assembleExportRecords(
 ): {
     records: DatasetRecord[]
     skippedDuplicates: number
-    skippedDiscarded: number
     skippedFailed: number
 } {
     const includeDuplicates = Boolean(query.includeDuplicates)
     let skippedDuplicates = 0
-    let skippedDiscarded = 0
     let skippedFailed = 0
     const records: DatasetRecord[] = []
 
@@ -114,14 +111,8 @@ export function assembleExportRecords(
         }
 
         const curation = transcription.llmCurationData as ExportCuration | null
-        if (query.dataset === 'curated') {
-            if (!curation) {
-                continue
-            }
-            if (curation.recommendation === 'discard') {
-                skippedDiscarded += 1
-                continue
-            }
+        if (query.dataset === 'curated' && !curation) {
+            continue
         }
 
         const text = resolveText(query.dataset, transcription)
@@ -142,7 +133,6 @@ export function assembleExportRecords(
             mtldScore: transcription.mtldScore,
             mattrScore: transcription.mattrScore,
             llmCurationScore: transcription.llmCurationScore,
-            recommendation: curation?.recommendation ?? null,
             coherence: curation?.coherence ?? null,
             richness: curation?.richness ?? null,
             factuality: curation?.factuality ?? null,
@@ -157,5 +147,5 @@ export function assembleExportRecords(
         })
     }
 
-    return { records, skippedDuplicates, skippedDiscarded, skippedFailed }
+    return { records, skippedDuplicates, skippedFailed }
 }

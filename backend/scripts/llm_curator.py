@@ -20,19 +20,15 @@ from typing import Any, Dict, List, Optional
 
 CHUNK_CHARS = 6000
 MAX_CHUNKS = 10
-VALID_RECOMMENDATIONS = {"sft_example", "pretraining", "discard"}
 
 SYSTEM_PROMPT = """You are a data curator for LLM fine-tuning datasets.
 Evaluate the transcript excerpt and return a JSON object with:
 - coherence: 0-10 (semantic coherence, discourse structure)
 - richness: 0-10 (content density, informational value)
 - factuality: 0-10 (apparent factual correctness; penalize contradictions, hallucinated-sounding claims, and empty talk)
-- recommendation: one of "sft_example", "pretraining", "discard"
 - rationale: one or two short sentences in the same language as the transcript
 
-Use "sft_example" for high-quality, self-contained instructional or explanatory content.
-Use "pretraining" for coherent but less structured continuous text.
-Use "discard" for noise, ads, empty talk, or incoherent fragments.
+Only score the excerpt. Do not decide whether it should be kept or removed.
 Return JSON only."""
 
 
@@ -110,17 +106,6 @@ def select_chunks(chunks: List[str], max_chunks: int = MAX_CHUNKS) -> List[str]:
     return [chunks[index] for index in indices]
 
 
-def aggregate_recommendation(recommendations: List[str]) -> str:
-    if any(item == "discard" for item in recommendations):
-        return "discard"
-    if not recommendations:
-        return "pretraining"
-    sft_count = sum(1 for item in recommendations if item == "sft_example")
-    if sft_count > len(recommendations) / 2:
-        return "sft_example"
-    return "pretraining"
-
-
 def aggregate_curations(curations: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not curations:
         raise ValueError("No chunk curations to aggregate")
@@ -135,9 +120,6 @@ def aggregate_curations(curations: List[Dict[str, Any]]) -> Dict[str, Any]:
         sum(item["factuality"] for item in curations) / len(curations), 2
     )
     overall = round((coherence + richness + factuality) / 3.0, 2)
-    recommendation = aggregate_recommendation(
-        [str(item["recommendation"]) for item in curations]
-    )
     rationales = [
         str(item.get("rationale") or "").strip()
         for item in curations
@@ -150,7 +132,6 @@ def aggregate_curations(curations: List[Dict[str, Any]]) -> Dict[str, Any]:
         "richness": richness,
         "factuality": factuality,
         "overall": overall,
-        "recommendation": recommendation,
         "rationale": rationale,
         "provider": last.get("provider"),
         "model": last.get("model"),
@@ -267,16 +248,11 @@ def parse_curation(
     richness = clamp_score(parsed.get("richness"))
     factuality = clamp_score(parsed.get("factuality"))
     overall = round((coherence + richness + factuality) / 3.0, 2)
-    recommendation = str(parsed.get("recommendation") or "pretraining").strip()
-    if recommendation not in VALID_RECOMMENDATIONS:
-        recommendation = "pretraining"
-
     return {
         "coherence": coherence,
         "richness": richness,
         "factuality": factuality,
         "overall": overall,
-        "recommendation": recommendation,
         "rationale": str(parsed.get("rationale") or "").strip(),
         "provider": used_provider,
         "model": used_model,

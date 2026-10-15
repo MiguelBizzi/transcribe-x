@@ -42,6 +42,15 @@ export interface TextQualityServiceOptions {
     timeout?: number
 }
 
+// Spellchecking auto-generated captions scales with vocabulary, not just
+// length: a 2k-word Portuguese transcript took 16s before the correction
+// cache. Leave room for slow machines; the timeout only guards a hung script.
+const DEFAULT_TIMEOUT_MS = 90000
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+}
+
 export class TextQualityService {
     private pythonPath: string
     private scriptPath: string
@@ -55,7 +64,7 @@ export class TextQualityService {
         this.scriptPath =
             options.scriptPath ||
             path.join(process.cwd(), 'scripts', 'text_processor.py')
-        this.timeout = options.timeout || 15000
+        this.timeout = options.timeout || DEFAULT_TIMEOUT_MS
     }
 
     async processText(
@@ -67,6 +76,24 @@ export class TextQualityService {
             return null
         }
 
+        const result = await this.runProcess(rawText, languageCode, isGenerated)
+        if (result || !isGenerated) {
+            return result
+        }
+
+        // Spellchecking is an optional refinement of auto-generated captions.
+        // Cleaning and metrics are worth keeping when it is what failed.
+        console.warn(
+            'Text processing with spellcheck failed, retrying without it',
+        )
+        return this.runProcess(rawText, languageCode, false)
+    }
+
+    private async runProcess(
+        rawText: string,
+        languageCode: string | null | undefined,
+        isGenerated: boolean,
+    ): Promise<QualityProcessResult | null> {
         try {
             const result = await this.executePythonScript({
                 text: rawText,
@@ -79,6 +106,9 @@ export class TextQualityService {
                 !result.processedText ||
                 !result.qualityMetrics
             ) {
+                console.error(
+                    `Text processing failed: ${result.error ?? 'empty result'}`,
+                )
                 return null
             }
 
@@ -86,7 +116,8 @@ export class TextQualityService {
                 processedText: result.processedText,
                 qualityMetrics: result.qualityMetrics,
             }
-        } catch {
+        } catch (error) {
+            console.error(`Text processing failed: ${errorMessage(error)}`)
             return null
         }
     }
@@ -121,7 +152,8 @@ export class TextQualityService {
                 processedText: result.processedText,
                 qualityMetrics: result.qualityMetrics,
             }
-        } catch {
+        } catch (error) {
+            console.error(`Text analysis failed: ${errorMessage(error)}`)
             return null
         }
     }
@@ -144,6 +176,9 @@ export class TextQualityService {
         )
 
         if (!result) {
+            console.error(
+                `Transcription ${transcriptionId} was left unprocessed`,
+            )
             return null
         }
 

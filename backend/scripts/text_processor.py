@@ -483,14 +483,24 @@ def maybe_spellcheck(text: str, language: str, is_generated: bool) -> str:
     except Exception:
         return text
 
+    # correction() searches edit-distance candidates and dominates the runtime.
+    # Transcripts repeat the same unknown words (names, jargon) many times, so
+    # each distinct word is resolved once.
+    corrections: Dict[str, Optional[str]] = {}
+
+    def correct(lowered: str) -> Optional[str]:
+        if lowered not in corrections:
+            corrections[lowered] = (
+                None if lowered in checker else checker.correction(lowered)
+            )
+        return corrections[lowered]
+
     def replace(match: re.Match[str]) -> str:
         token = match.group(0)
         if not token.isalpha() or len(token) < 3:
             return token
         lowered = token.lower()
-        if lowered in checker:
-            return token
-        correction = checker.correction(lowered)
+        correction = correct(lowered)
         if not correction or correction == lowered:
             return token
         # Nearest-neighbor edits rewrite unknown words (frontend → fronte).

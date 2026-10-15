@@ -30,7 +30,6 @@ export function TranscriptionJobActions({
           processedContent: detail.processedContent,
           isProcessed: detail.isProcessed,
           llmCurationScore: detail.llmCurationScore,
-          recommendation: detail.llmCurationData?.recommendation,
         }),
         format,
         includeDuplicates: true,

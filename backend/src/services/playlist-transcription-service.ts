@@ -207,7 +207,6 @@ export class PlaylistTranscriptionService {
                     youtubeId: true,
                     status: true,
                     playlistId: true,
-                    errorMessage: true,
                 },
             })
 
@@ -218,7 +217,6 @@ export class PlaylistTranscriptionService {
 
             const decision = singleRetryDecision({
                 status: transcription.status,
-                errorMessage: transcription.errorMessage,
                 playlistStillProcessing: Boolean(
                     transcription.playlistId &&
                         processingPlaylists.has(transcription.playlistId),

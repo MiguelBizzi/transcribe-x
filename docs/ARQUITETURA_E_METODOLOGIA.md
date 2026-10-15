@@ -280,7 +280,7 @@ Ordem operacional na interface:
 1. A transcrição chega **já processada** (limpeza automática na criação).
 2. O usuário pode **reprocessar** (`POST /transcriptions/:id/process`).
 3. **Deduplicar** o vídeo (sentenças) e/ou a playlist/canal (documentos).
-4. **Curadoria LLM** (`POST /transcriptions/:id/curate`) — pontua e recomenda, sem alterar o texto.
+4. **Curadoria LLM** (`POST /transcriptions/:id/curate`) — atribui notas e justificativa, sem alterar o texto e sem excluir nada.
 5. Exportar o recorte desejado, com os metadados de curadoria no mesmo registro.
 
 A curadoria LLM **não gera texto novo**. Nenhuma etapa do pipeline reescreve a fala com um modelo.
@@ -525,14 +525,9 @@ O sistema pede um JSON com:
 - `coherence` (0–10): coerência semântica e estrutura do discurso;
 - `richness` (0–10): densidade e valor informacional;
 - `factuality` (0–10): correção factual **aparente** (contradições, afirmações vazias, tom alucinatório) — **não** é verificação contra uma base de conhecimento externa;
-- `recommendation`: `sft_example` | `pretraining` | `discard`;
 - `rationale`: uma ou duas frases no idioma do texto.
 
-Critério de recomendação, explícito no *prompt*:
-
-- **`sft_example`:** conteúdo instrucional ou explicativo, auto-contido, de alta qualidade — candidato a par instrução–resposta.
-- **`pretraining`:** texto contínuo coerente, porém menos estruturado como exemplo de SFT.
-- **`discard`:** ruído, propaganda, conversa vazia, fragmento incoerente.
+O *prompt* pede apenas notas e justificativa. O juiz não classifica o texto como aproveitável ou descartável: a decisão de filtrar, e por qual limiar, é de quem consome o dataset.
 
 ### 9.5 Agregação
 
@@ -542,11 +537,12 @@ Cada nota é limitada a \([0, 10]\). O overall é a média aritmética:
 \mathrm{overall} = \frac{c + r + f}{3}
 \]
 
-O campo persistido `llmCurationScore` é \(\mathrm{overall}/10\), para ficar na mesma escala \([0, 1]\) do `qualityScore`. O JSON completo (`provider`, `model`, notas, recomendação, justificativa) fica em `llmCurationData`.
+O campo persistido `llmCurationScore` é \(\mathrm{overall}/10\), para ficar na mesma escala \([0, 1]\) do `qualityScore`. O JSON completo (`provider`, `model`, notas, justificativa) fica em `llmCurationData`.
 
 ### 9.6 O que a curadoria não faz
 
 - Não altera `processedContent`.
+- Não recomenda nem remove vídeos: nenhum texto sai do dataset por causa da nota.
 - Não é *grounding* factual (não consulta web nem o vídeo).
 - Não substitui a deduplicação: um texto duplicado pode receber nota alta e mesmo assim deve ser filtrado no export.
 
@@ -556,7 +552,7 @@ O campo persistido `llmCurationScore` é \(\mathrm{overall}/10\), para ficar na 
 
 O pipeline não reescreve a transcrição com um modelo. O campo `text` de qualquer export é `content` (estágio `raw`) ou `processedContent` (estágios `processed` e `curated`, com fallback para `content`).
 
-A curadoria LLM permanece como julgamento: notas, recomendação, justificativa, provedor e modelo saem junto com o texto, para o consumidor filtrar exemplos sem que o conteúdo da fala seja substituído por uma geração. A recomendação `sft_example` ou `pretraining` indica o uso sugerido; ela não produz pares instrução–resposta nem uma prosa alternativa.
+A curadoria LLM permanece como julgamento: notas, justificativa, provedor e modelo saem junto com o texto, para o consumidor filtrar exemplos por limiar de nota sem que o conteúdo da fala seja substituído por uma geração. A curadoria não produz pares instrução–resposta nem uma prosa alternativa.
 
 ---
 
@@ -581,17 +577,17 @@ Todo arquivo baixado é um dataset do estágio escolhido. Os cinco formatos carr
 
 - **`raw`:** `content`. Duplicatas omitidas por padrão.
 - **`processed`:** `processedContent` (fallback `content`).
-- **`curated`:** exige `llmCurationData`; **exclui** `recommendation = discard`. O texto continua sendo o processado.
+- **`curated`:** exige `llmCurationData` (vídeos ainda não curados ficam de fora) e **não exclui nenhum vídeo por nota**. O texto continua sendo o processado.
 
-Contadores `skippedDuplicates` e `skippedDiscarded` voltam na resposta para o relatório experimental.
+Contadores `skippedDuplicates` e `skippedFailed` voltam na resposta para o relatório experimental.
 
 ### 11.3 Campos
 
 Cada registro, em qualquer formato, tem exatamente estas chaves, sempre presentes. Valor ausente é `null` (JSON e Markdown), string vazia (CSV e TXT) ou elemento vazio (XML):
 
-`id`, `title`, `youtubeId`, `playlistId`, `language`, `dataset`, `deduplicationStatus`, `dedupGroupId`, `qualityScore`, `mtldScore`, `mattrScore`, `llmCurationScore`, `recommendation`, `coherence`, `richness`, `factuality`, `curationOverall`, `curationRationale`, `curationProvider`, `curationModel`, `curationChunkCount`, `text`.
+`id`, `title`, `youtubeId`, `playlistId`, `language`, `dataset`, `deduplicationStatus`, `dedupGroupId`, `qualityScore`, `mtldScore`, `mattrScore`, `llmCurationScore`, `coherence`, `richness`, `factuality`, `curationOverall`, `curationRationale`, `curationProvider`, `curationModel`, `curationChunkCount`, `text`.
 
-`text` é o único campo de conteúdo. Os demais campos de curadoria repetem o julgamento do LLM e o grupo de deduplicação quando essas etapas já rodaram; ficam vazios no caso contrário. Isso permite filtrar *a posteriori* por limiar de MATTR, nota do juiz ou recomendação sem reprocessar o corpus.
+`text` é o único campo de conteúdo. Os demais campos de curadoria repetem o julgamento do LLM e o grupo de deduplicação quando essas etapas já rodaram; ficam vazios no caso contrário. Isso permite filtrar *a posteriori* por limiar de MATTR ou nota do juiz sem reprocessar o corpus.
 
 ### 11.4 Formatos
 
@@ -612,7 +608,6 @@ Cada registro, em qualquer formato, tem exatamente estas chaves, sempre presente
     "mtldScore": 50,
     "mattrScore": 0.8,
     "llmCurationScore": 0.88,
-    "recommendation": "sft_example",
     "coherence": 9,
     "richness": 8,
     "factuality": 9,
@@ -647,7 +642,6 @@ qualityScore: 0.9
 mtldScore: 50
 mattrScore: 0.8
 llmCurationScore: 0.88
-recommendation: sft_example
 coherence: 9
 richness: 8
 factuality: 9
@@ -683,7 +677,6 @@ qualityScore: 0.9
 mtldScore: 50
 mattrScore: 0.8
 llmCurationScore: 0.88
-recommendation: "sft_example"
 coherence: 9
 richness: 8
 factuality: 9
@@ -717,7 +710,6 @@ curationChunkCount: 1
     <mtldScore>50</mtldScore>
     <mattrScore>0.8</mattrScore>
     <llmCurationScore>0.88</llmCurationScore>
-    <recommendation>sft_example</recommendation>
     <coherence>9</coherence>
     <richness>8</richness>
     <factuality>9</factuality>
@@ -811,11 +803,11 @@ Protocolo recomendado (ainda que o treino LoRA não esteja implementado no Trans
 
 1. Escolher um domínio (ex.: playlist educacional de um canal).
 2. Exportar três JSONs: `raw`, `processed` e `curated`.
-3. Registrar, para cada export, `recordCount`, `skippedDuplicates`, `skippedDiscarded` e o modelo juiz (`curationProvider`, `curationModel`).
+3. Registrar, para cada export, `recordCount`, `skippedDuplicates`, `skippedFailed` e o modelo juiz (`curationProvider`, `curationModel`).
 4. Fine-tuning piloto com o **mesmo** modelo-base e o **mesmo** orçamento (ex.: LoRA em Llama 3 8B).
 5. Avaliar em conjunto de validação separado:
    - perplexidade (pré-treino / linguagem);
-   - tarefa alvo, filtrando pelo campo `recommendation` quando o uso for SFT;
+   - tarefa alvo, filtrando por limiar de `curationOverall` quando o uso for SFT;
    - juiz LLM e/ou avaliação humana em amostra.
 6. Reportar também as métricas internas (MATTR, MTLD, notas de coerência/riqueza/factualidade) como **descritivas**, não como prova de superioridade.
 

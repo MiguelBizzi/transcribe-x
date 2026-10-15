@@ -25,7 +25,6 @@ export async function downloadFineTuningDataset(input: {
 }): Promise<{
   recordCount: number
   skippedDuplicates: number
-  skippedDiscarded: number
   skippedFailed: number
 }> {
   const result = await exportFineTuningAction(input)
@@ -59,7 +58,6 @@ export async function downloadFineTuningDataset(input: {
   return {
     recordCount: result.data.recordCount,
     skippedDuplicates: result.data.skippedDuplicates,
-    skippedDiscarded: result.data.skippedDiscarded,
     skippedFailed: result.data.skippedFailed,
   }
 }
