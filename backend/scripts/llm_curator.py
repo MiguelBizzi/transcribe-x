@@ -341,6 +341,7 @@ def judge_chunk(
     ollama_model: str,
     openai_api_key: str,
     ollama_base_url: str,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> Dict[str, Any]:
     parsed_runs: List[Dict[str, Any]] = []
     last_error: Optional[Exception] = None
@@ -353,6 +354,7 @@ def judge_chunk(
                 ollama_model,
                 openai_api_key,
                 ollama_base_url,
+                system_prompt,
             )
             parsed_runs.append(parse_curation(raw, used_provider, used_model))
         except Exception as exc:
@@ -386,6 +388,8 @@ def curate(payload: Dict[str, Any]) -> Dict[str, Any]:
         judge_runs = 1
     judge_runs = min(max(judge_runs, 1), MAX_JUDGE_RUNS)
 
+    system_prompt = str(payload.get("system_prompt") or SYSTEM_PROMPT)
+
     chunks = select_chunks(split_chunks(text))
     if not chunks:
         raise ValueError("Text is required")
@@ -408,6 +412,7 @@ def curate(payload: Dict[str, Any]) -> Dict[str, Any]:
                 ollama_model,
                 openai_api_key,
                 ollama_base_url,
+                system_prompt,
             )
         )
 
