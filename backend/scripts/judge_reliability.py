@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Meta-evaluation of LLM-judge reliability: human agreement and prompt-variant stability.
-
-Usage:
+"""Usage:
   judge_reliability.py agreement --judge eval/judge.csv --human human.csv
   judge_reliability.py stability corpus.json --n 30
 """

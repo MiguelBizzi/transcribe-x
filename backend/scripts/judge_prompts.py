@@ -1,4 +1,3 @@
-"""Versioned, bias-aware prompts for the LLM judges (curation scoring and pairwise)."""
 import re
 from typing import List
 
@@ -98,7 +97,6 @@ _VERSION_TAG = re.compile(r"<\s*/?\s*version_[ab]\s*>", re.IGNORECASE)
 
 
 def _strip(pattern: "re.Pattern[str]", text: str) -> str:
-    """Remove delimiter tags repeatedly so nested payloads cannot reassemble one."""
     while True:
         new = pattern.sub("", text)
         if new == text:
@@ -107,12 +105,10 @@ def _strip(pattern: "re.Pattern[str]", text: str) -> str:
 
 
 def wrap_excerpt(text: str) -> str:
-    """Wrap a transcript excerpt in <transcript> tags, removing any delimiter inside it."""
     return "<transcript>\n" + _strip(_TRANSCRIPT_TAG, text) + "\n</transcript>"
 
 
 def wrap_pair(a: str, b: str) -> str:
-    """Wrap two candidate versions in labelled tags; neither can forge a version tag."""
     a = _strip(_VERSION_TAG, a)
     b = _strip(_VERSION_TAG, b)
     return f"<version_a>\n{a}\n</version_a>\n<version_b>\n{b}\n</version_b>"

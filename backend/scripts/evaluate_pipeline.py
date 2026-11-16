@@ -217,7 +217,6 @@ JUDGE_PROMPT = PAIRWISE_SYSTEM_PROMPT
 
 
 def normalize_winner(value: Any) -> str:
-    """Map a judge label ("Version A", "b", ...) to "A", "B" or "tie"."""
     if not isinstance(value, str):
         return "tie"
     text = re.sub(r"^version[\s_\-]*", "", value.strip().lower()).strip(" .!\"'")
@@ -225,7 +224,6 @@ def normalize_winner(value: Any) -> str:
 
 
 def resolve_swapped(first: str, second: str) -> tuple[str, bool]:
-    """Combine verdicts from both orders (already in content terms); disagreement is a tie."""
     if first == second:
         return first, True
     return "tie", False
@@ -263,7 +261,6 @@ def judge(rows: List[Dict[str, Any]], limit: int, cache_dir: Optional[Path]) -> 
     tasks = []
     for row in sample:
         raw_part, processed_part = excerpt_pair(row)
-        # (prompt, label of the processed text in that order)
         tasks.append((row, [(wrap_pair(processed_part, raw_part), "A"), (wrap_pair(raw_part, processed_part), "B")]))
 
     def ask(task):
