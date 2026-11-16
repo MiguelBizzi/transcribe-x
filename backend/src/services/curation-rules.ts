@@ -6,6 +6,11 @@ export function curationTimeoutMs(text: string): number {
     return Math.min(120000 + estimatedChunks * 90000, 900000)
 }
 
+export function judgeRunsForPayload(runs: number): number {
+    if (!Number.isFinite(runs)) return 1
+    return Math.min(5, Math.max(1, Math.trunc(runs)))
+}
+
 export function curationSourceText(
     processedContent?: string | null,
     content?: string | null,

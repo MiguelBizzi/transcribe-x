@@ -28,6 +28,8 @@ export const envSchema = z.object({
     OPENAI_MODEL: z.string().default('gpt-4o-mini'),
     OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
     OLLAMA_MODEL: z.string().default('llama3'),
+    // Number of LLM-judge runs per curation (median aggregation)
+    CURATION_JUDGE_RUNS: z.coerce.number().int().min(1).max(5).default(1),
     // Punctuation restoration of auto captions, through the curation provider
     PUNCTUATION_RESTORATION: z
         .enum(['true', 'false'])
