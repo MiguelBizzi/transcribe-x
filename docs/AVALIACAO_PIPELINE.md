@@ -99,7 +99,8 @@ A limpeza remove o ruído de fala (hesitações −100%, repetições −66%) co
 
 ## 6. Limitações
 
-- **Juiz e restaurador usam o mesmo modelo** (gpt-4o-mini), o que admite viés de autopreferência. Para a versão final, recomenda-se rodar o juiz com outro modelo (`JUDGE_MODEL=...`) e/ou uma amostra de avaliação humana com o mesmo protocolo cego.
+- **Juiz e restaurador podem ser o mesmo modelo** (gpt-4o-mini), o que admite viés de autopreferência. O relatório de `evaluate_pipeline.py` agora emite automaticamente o aviso `self_preference_warning` quando `JUDGE_MODEL` coincide com o modelo restaurador. Para a versão final, recomenda-se rodar o juiz com outro modelo (`JUDGE_MODEL=...`) e/ou uma amostra de avaliação humana com o mesmo protocolo cego (ver `judge_reliability.py agreement`).
+- **Fundamentação e limites do juiz LLM** (vieses, concordância com humanos ainda não medida neste corpus, factualidade apenas aparente, ruído de ASR) estão em [`JULGAMENTO_LLM.md`](JULGAMENTO_LLM.md). O julgamento pareado agora troca a posição dos textos e trata discordância como empate.
 - **Os trechos do juiz são alinhados por proporção de palavras**, não por alinhamento exato; parte das derrotas em legendas pontuadas cita sentenças cortadas na borda do trecho.
 - **Fronteiras de bloco e reticências.** A pontuação é restaurada em blocos de 250 palavras; o modelo às vezes põe em maiúscula a primeira palavra do bloco sem fechar a frase anterior. Reticências (`...`) usadas pelo modelo para fala interrompida são tratadas como fim de frase. Ambos afetam só a capitalização e a contagem de sentenças, não as palavras.
 - **Repetição enfática dentro da frase ainda colapsa** (`no, no, no!` → `no!`), porque não se distingue de hesitação sem informação prosódica.
@@ -116,5 +117,12 @@ venv/bin/python3 scripts/evaluate_pipeline.py corpus.json --out eval-ablacao/ --
 ```
 
 O comando de exportação do `corpus.json` está no cabeçalho do script. Chamadas ao LLM ficam em cache em `<out>/cache`, então reexecutar não custa novas chamadas.
+
+Confiabilidade do juiz (detalhes e protocolo em [`JULGAMENTO_LLM.md`](JULGAMENTO_LLM.md)):
+
+```bash
+venv/bin/python3 scripts/judge_reliability.py agreement --judge eval/judge.csv --human human.csv
+venv/bin/python3 scripts/judge_reliability.py stability corpus.json --n 30
+```
 
 Métricas já gravadas no banco só mudam quando cada transcrição é reprocessada (`pnpm reprocess:all`).
