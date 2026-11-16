@@ -1,9 +1,13 @@
-export function curationTimeoutMs(text: string): number {
+export function curationTimeoutMs(text: string, runs = 1): number {
     const estimatedChunks = Math.min(
         10,
         Math.max(1, Math.ceil(text.length / 6000)),
     )
-    return Math.min(120000 + estimatedChunks * 90000, 900000)
+    const effectiveRuns = judgeRunsForPayload(runs)
+    return Math.min(
+        120000 + estimatedChunks * 90000 * effectiveRuns,
+        900000 * effectiveRuns,
+    )
 }
 
 export function judgeRunsForPayload(runs: number): number {

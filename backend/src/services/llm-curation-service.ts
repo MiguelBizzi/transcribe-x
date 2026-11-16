@@ -64,6 +64,7 @@ export class LlmCurationService {
         languageCode?: string | null,
     ): Promise<LlmCurationData> {
         assertCurationText(text)
+        const judgeRuns = judgeRunsForPayload(env.CURATION_JUDGE_RUNS)
 
         const response = await executePythonScript<
             {
@@ -89,9 +90,9 @@ export class LlmCurationService {
                 openai_model: env.OPENAI_MODEL,
                 ollama_base_url: env.OLLAMA_BASE_URL,
                 ollama_model: env.OLLAMA_MODEL,
-                judge_runs: judgeRunsForPayload(env.CURATION_JUDGE_RUNS),
+                judge_runs: judgeRuns,
             },
-            { timeout: curationTimeoutMs(text) },
+            { timeout: curationTimeoutMs(text, judgeRuns) },
         )
 
         if (!response.success || !response.curation) {

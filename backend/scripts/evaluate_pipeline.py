@@ -247,6 +247,12 @@ def excerpt_pair(row: Dict[str, Any]) -> tuple[str, str]:
     return raw_part, processed_part
 
 
+def restorer_model(provider: str) -> str:
+    if provider == "ollama":
+        return os.getenv("OLLAMA_MODEL") or "llama3"
+    return os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
+
+
 def judge(rows: List[Dict[str, Any]], limit: int, cache_dir: Optional[Path]) -> List[Dict[str, Any]]:
     from llm_curator import complete_with_fallback, extract_json
 
@@ -273,7 +279,7 @@ def judge(rows: List[Dict[str, Any]], limit: int, cache_dir: Optional[Path]) -> 
                 )
                 parsed = extract_json(raw)
                 return {"winner": normalize_winner(parsed.get("winner")),
-                        "reason": parsed.get("reason", ""), "model": used_model}
+                        "reason": str(parsed.get("reason", "")), "model": used_model}
 
             verdict = cached(cache_dir, f"judge:{PAIRWISE_PROMPT_VERSION}:{model}:{prompt}", call)
             if verdict["winner"] == "tie":
@@ -282,7 +288,7 @@ def judge(rows: List[Dict[str, Any]], limit: int, cache_dir: Optional[Path]) -> 
                 content = "processed" if verdict["winner"] == processed_label else "raw"
             verdicts.append((content, verdict))
         outcome, consistent = resolve_swapped(verdicts[0][0], verdicts[1][0])
-        reason = verdicts[0][1]["reason"] if consistent else " | ".join(v["reason"] for _, v in verdicts)
+        reason = verdicts[0][1]["reason"] if consistent else " | ".join(str(v["reason"]) for _, v in verdicts)
         return {"id": row["id"], "group": row["group"], "outcome": outcome, "reason": reason,
                 "model": verdicts[0][1]["model"], "positionConsistent": consistent,
                 "promptVersion": PAIRWISE_PROMPT_VERSION}
@@ -387,7 +393,7 @@ def main() -> None:
         report += judge_table(verdicts)
         warning = self_preference_warning(
             os.getenv("JUDGE_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
-            os.getenv("OPENAI_MODEL") or "gpt-4o-mini")
+            restorer_model(os.getenv("CURATION_LLM_PROVIDER") or "openai"))
         if warning:
             report += ["", warning]
         with (args.out / "judge.csv").open("w", newline="") as handle:

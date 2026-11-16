@@ -49,3 +49,19 @@ def test_judge_calls_both_orders(monkeypatch):
     assert len(out) == 1
     assert out[0]["outcome"] == "tie" and out[0]["positionConsistent"] is False
     assert out[0]["promptVersion"] == ep.PAIRWISE_PROMPT_VERSION
+
+
+def test_judge_tolerates_non_string_reason(monkeypatch):
+    replies = iter(['{"winner": "A", "reason": ["x", 1]}', '{"winner": "B", "reason": 7}'])
+    monkeypatch.setattr(llm_curator, "complete_with_fallback",
+                        lambda *a: (next(replies), "p", "m"))
+    row = {"id": "d2", "group": "auto", "rawText": "eh hello world", "processedText": "Hello world."}
+    out = ep.judge([row], 1, None)
+    assert isinstance(out[0]["reason"], str)
+
+
+def test_restorer_model_by_provider(monkeypatch):
+    monkeypatch.setenv("OLLAMA_MODEL", "mistral")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-x")
+    assert ep.restorer_model("ollama") == "mistral"
+    assert ep.restorer_model("openai") == "gpt-x"

@@ -138,6 +138,16 @@ def aggregate_curations(curations: List[Dict[str, Any]]) -> Dict[str, Any]:
     runs = [c["runs"] for c in curations if c.get("runs") is not None]
     if runs:
         extra["runs"] = max(runs)
+    crit_rationale: Dict[str, str] = {}
+    for name in CRITERIA:
+        for c in curations:
+            cr = c.get("criteriaRationale")
+            text = str(cr.get(name) or "").strip() if isinstance(cr, dict) else ""
+            if text:
+                crit_rationale[name] = text
+                break
+    if crit_rationale:
+        extra["criteriaRationale"] = crit_rationale
     stds = [c["scoreStdDev"] for c in curations if isinstance(c.get("scoreStdDev"), dict)]
     if stds:
         extra["scoreStdDev"] = {
@@ -359,6 +369,7 @@ def judge_chunk(
             parsed_runs.append(parse_curation(raw, used_provider, used_model))
         except Exception as exc:
             last_error = exc
+            print(f"judge run failed: {exc}", file=sys.stderr)
     if not parsed_runs:
         raise last_error  # type: ignore[misc]
     return aggregate_runs(parsed_runs)

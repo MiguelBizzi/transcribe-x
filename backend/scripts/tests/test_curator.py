@@ -190,3 +190,56 @@ def test_openai_call_is_deterministic(monkeypatch):
     llm_curator.curate_with_openai("p", "m", "k")
     assert captured["temperature"] == 0
     assert captured["seed"] == 42
+
+
+def _cur(**kw):
+    base = {"coherence": 5, "richness": 5, "factuality": 5, "rationale": "r",
+            "provider": "p", "model": "m"}
+    base.update(kw)
+    return base
+
+
+def test_aggregate_curations_propagates_judge_metadata():
+    out = llm_curator.aggregate_curations([
+        _cur(criteriaRationale={"coherence": "", "richness": "rich1"},
+             promptVersion="v", runs=3,
+             scoreStdDev={"coherence": 1.0, "richness": 0.0, "factuality": 0.0}),
+        _cur(criteriaRationale={"coherence": "coh2", "richness": "rich2"},
+             promptVersion="v", runs=3,
+             scoreStdDev={"coherence": 0.0, "richness": 0.0, "factuality": 0.0}),
+    ])
+    assert out["criteriaRationale"]["coherence"] == "coh2"
+    assert out["criteriaRationale"]["richness"] == "rich1"
+    assert out["promptVersion"] == "v"
+    assert out["runs"] == 3
+    assert out["scoreStdDev"]["coherence"] == 0.5
+
+
+def test_aggregate_curations_omits_absent_metadata():
+    out = llm_curator.aggregate_curations([_cur()])
+    for key in ("criteriaRationale", "promptVersion", "runs", "scoreStdDev"):
+        assert key not in out
+
+
+def test_curate_keeps_criteria_rationale(monkeypatch):
+    monkeypatch.setattr(llm_curator, "judge_chunk", lambda *a, **k: _cur(
+        criteriaRationale={"coherence": "why"}, promptVersion="v", runs=1))
+    out = llm_curator.curate({"text": "hello world", "provider": "openai"})
+    assert out["curation"]["criteriaRationale"] == {"coherence": "why"}
+
+
+def test_judge_chunk_logs_failures_to_stderr(monkeypatch, capsys):
+    calls = {"n": 0}
+
+    def fake(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("boom")
+        return "{}", "p", "m"
+
+    monkeypatch.setattr(llm_curator, "complete_with_fallback", fake)
+    monkeypatch.setattr(llm_curator, "parse_curation", lambda raw, p, m: _cur())
+    llm_curator.judge_chunk("x", 2, "openai", "m", "m", "k", "u")
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "boom" in captured.err

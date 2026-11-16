@@ -78,6 +78,11 @@ def doc_text(doc: Any) -> str:
     return str(doc.get("processedText") or doc.get("text") or doc.get("rawText") or "")
 
 
+def non_empty_texts(docs: List[Any]) -> List[str]:
+    texts = (doc_text(doc) for doc in docs)
+    return [t for t in texts if t.strip()]
+
+
 def cmd_agreement(args: argparse.Namespace) -> None:
     out = agreement_with_humans(read_csv(args.judge), read_csv(args.human))
     print("| n | agreement | kappa |\n|---|---|---|")
@@ -92,14 +97,14 @@ def cmd_stability(args: argparse.Namespace) -> None:
     for i, variant in enumerate(CURATION_PROMPT_VARIANTS, 1):
         prompts[f"variant{i}"] = variant
     scores: Dict[str, List[float]] = {name: [] for name in prompts}
-    for doc in docs:
+    docs = non_empty_texts(docs)
+    for text in docs:
         for name, prompt in prompts.items():
             result = llm_curator.curate(
                 {
-                    "text": doc_text(doc),
+                    "text": text,
                     "system_prompt": prompt,
                     "judge_runs": 1,
-                    "temperature": 0,
                 }
             )
             scores[name].append(float(result["curation"]["overall"]))

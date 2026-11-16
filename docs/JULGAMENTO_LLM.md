@@ -65,6 +65,8 @@ venv/bin/python3 scripts/judge_reliability.py agreement --judge eval/judge.csv -
 venv/bin/python3 scripts/judge_reliability.py stability corpus.json --n 30
 ```
 
+As variantes de prompt (`CURATION_PROMPT_VARIANTS`) reproduzem a mesma rubrica literalmente; assim, a verificação de estabilidade mede a paráfrase das cláusulas de enquadramento, de viés e de dados, não da rubrica.
+
 O `human.csv` usa o mesmo formato do `judge.csv`: coluna `id` e coluna `outcome` (`processed`, `raw` ou `tie`).
 
 ## 6. Nota de verificação das citações

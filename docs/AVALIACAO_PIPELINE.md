@@ -125,4 +125,6 @@ venv/bin/python3 scripts/judge_reliability.py agreement --judge eval/judge.csv -
 venv/bin/python3 scripts/judge_reliability.py stability corpus.json --n 30
 ```
 
+Nota: a restauração de pontuação (`punctuation_restorer.py`) reutiliza `complete_with_fallback` e agora também roda com temperatura 0 e semente 42; resultados obtidos antes com temperatura 0,2 podem não se reproduzir exatamente com o cache vazio.
+
 Métricas já gravadas no banco só mudam quando cada transcrição é reprocessada (`pnpm reprocess:all`).

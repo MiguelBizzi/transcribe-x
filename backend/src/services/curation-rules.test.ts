@@ -104,3 +104,12 @@ describe('legacy curation data', () => {
         )
     })
 })
+
+describe('curationTimeoutMs with judge runs', () => {
+    it('keeps runs=1 identical and scales per-chunk term and cap by runs', () => {
+        assert.equal(curationTimeoutMs('a'.repeat(6000), 1), 210000)
+        assert.equal(curationTimeoutMs('a'.repeat(6000), 3), 120000 + 270000)
+        assert.equal(curationTimeoutMs('a'.repeat(120_000), 3), 2_700_000)
+        assert.equal(curationTimeoutMs('a'.repeat(120_000), 5), 4_500_000)
+    })
+})

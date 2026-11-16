@@ -62,3 +62,9 @@ def test_curate_accepts_system_prompt_override(monkeypatch):
         "provider": p, "model": m})
     llm_curator.curate({"text": "hello world", "provider": "openai", "system_prompt": "CUSTOM"})
     assert seen == ["CUSTOM"]
+
+
+def test_non_empty_texts_skips_empty_docs():
+    from judge_reliability import non_empty_texts
+
+    assert non_empty_texts(["a", {"text": ""}, {"processedText": "b"}, {}]) == ["a", "b"]
