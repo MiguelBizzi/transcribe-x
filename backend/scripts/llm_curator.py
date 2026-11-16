@@ -18,25 +18,29 @@ import sys
 import traceback
 from typing import Any, Dict, List, Optional
 
+from judge_prompts import (
+    CRITERIA,
+    CURATION_PROMPT_VERSION,
+    CURATION_SYSTEM_PROMPT,
+    wrap_excerpt,
+)
+
 CHUNK_CHARS = 6000
 MAX_CHUNKS = 10
 
-SYSTEM_PROMPT = """You are a data curator for LLM fine-tuning datasets.
-Evaluate the transcript excerpt and return a JSON object with:
-- coherence: 0-10 (semantic coherence, discourse structure)
-- richness: 0-10 (content density, informational value)
-- factuality: 0-10 (apparent factual correctness; penalize contradictions, hallucinated-sounding claims, and empty talk)
-- rationale: one or two short sentences in the same language as the transcript
+SYSTEM_PROMPT = CURATION_SYSTEM_PROMPT
 
-Only score the excerpt. Do not decide whether it should be kept or removed.
-Return JSON only."""
+JUDGE_SEED = 42
+MAX_JUDGE_RUNS = 5
 
 
-def clamp_score(value: Any) -> float:
+def require_score(value: Any, name: str) -> float:
     try:
         number = float(value)
     except (TypeError, ValueError):
-        number = 0.0
+        raise ValueError(f"Missing or invalid score: {name}")
+    if number != number or number in (float("inf"), float("-inf")):
+        raise ValueError(f"Missing or invalid score: {name}")
     return round(min(max(number, 0.0), 10.0), 2)
 
 
@@ -127,7 +131,21 @@ def aggregate_curations(curations: List[Dict[str, Any]]) -> Dict[str, Any]:
     ]
     rationale = " ".join(rationales[:3])
     last = curations[-1]
+    extra: Dict[str, Any] = {}
+    versions = [c["promptVersion"] for c in curations if c.get("promptVersion")]
+    if versions:
+        extra["promptVersion"] = versions[0]
+    runs = [c["runs"] for c in curations if c.get("runs") is not None]
+    if runs:
+        extra["runs"] = max(runs)
+    stds = [c["scoreStdDev"] for c in curations if isinstance(c.get("scoreStdDev"), dict)]
+    if stds:
+        extra["scoreStdDev"] = {
+            name: round(sum(float(d.get(name, 0.0)) for d in stds) / len(stds), 2)
+            for name in CRITERIA
+        }
     return {
+        **extra,
         "coherence": coherence,
         "richness": richness,
         "factuality": factuality,
@@ -154,9 +172,10 @@ def build_user_prompt(
     if chunk_count > 1:
         header.append(f"Chunk: {chunk_index + 1}/{chunk_count}")
     prefix = "\n".join(header)
+    excerpt = wrap_excerpt(text)
     if prefix:
-        return f"{prefix}\n\nTranscript:\n{text}"
-    return f"Transcript:\n{text}"
+        return f"{prefix}\n\n{excerpt}"
+    return excerpt
 
 
 def curate_with_openai(
@@ -167,7 +186,8 @@ def curate_with_openai(
     client = OpenAI(api_key=api_key)
     response = client.chat.completions.create(
         model=model,
-        temperature=0.2,
+        temperature=0,
+        seed=JUDGE_SEED,
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": system_prompt},
@@ -192,6 +212,7 @@ def curate_with_ollama(
             "model": model,
             "stream": False,
             "format": "json",
+            "options": {"temperature": 0, "seed": JUDGE_SEED},
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
@@ -257,20 +278,88 @@ def parse_curation(
     used_model: str,
 ) -> Dict[str, Any]:
     parsed = extract_json(raw)
-    coherence = clamp_score(parsed.get("coherence"))
-    richness = clamp_score(parsed.get("richness"))
-    factuality = clamp_score(parsed.get("factuality"))
+    coherence = require_score(parsed.get("coherence"), "coherence")
+    richness = require_score(parsed.get("richness"), "richness")
+    factuality = require_score(parsed.get("factuality"), "factuality")
     overall = round((coherence + richness + factuality) / 3.0, 2)
+    raw_rationale = parsed.get("rationale")
+    criteria_rationale: Dict[str, str] = {}
+    if isinstance(raw_rationale, dict):
+        for name in CRITERIA:
+            text = str(raw_rationale.get(name) or "").strip()
+            if text:
+                criteria_rationale[name] = text
+        rationale = " ".join(criteria_rationale.values())
+    else:
+        rationale = str(raw_rationale or "").strip()
     return {
         "coherence": coherence,
         "richness": richness,
         "factuality": factuality,
         "overall": overall,
-        "rationale": str(parsed.get("rationale") or "").strip(),
+        "rationale": rationale,
+        "criteriaRationale": criteria_rationale,
+        "promptVersion": CURATION_PROMPT_VERSION,
         "provider": used_provider,
         "model": used_model,
         "chunkCount": 1,
     }
+
+
+def aggregate_runs(parsed_runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not parsed_runs:
+        raise ValueError("No runs to aggregate")
+    n = len(parsed_runs)
+    means: Dict[str, float] = {}
+    stds: Dict[str, float] = {}
+    for name in CRITERIA:
+        values = [float(r[name]) for r in parsed_runs]
+        mean = sum(values) / n
+        means[name] = round(mean, 2)
+        stds[name] = round((sum((v - mean) ** 2 for v in values) / n) ** 0.5, 2)
+    first = parsed_runs[0]
+    last = parsed_runs[-1]
+    return {
+        **means,
+        "overall": round(sum(means.values()) / 3.0, 2),
+        "rationale": first.get("rationale", ""),
+        "criteriaRationale": first.get("criteriaRationale", {}),
+        "promptVersion": first.get("promptVersion", CURATION_PROMPT_VERSION),
+        "provider": last.get("provider"),
+        "model": last.get("model"),
+        "chunkCount": 1,
+        "runs": n,
+        "scoreStdDev": stds,
+    }
+
+
+def judge_chunk(
+    prompt: str,
+    runs: int,
+    provider: str,
+    openai_model: str,
+    ollama_model: str,
+    openai_api_key: str,
+    ollama_base_url: str,
+) -> Dict[str, Any]:
+    parsed_runs: List[Dict[str, Any]] = []
+    last_error: Optional[Exception] = None
+    for _ in range(max(1, runs)):
+        try:
+            raw, used_provider, used_model = complete_with_fallback(
+                prompt,
+                provider,
+                openai_model,
+                ollama_model,
+                openai_api_key,
+                ollama_base_url,
+            )
+            parsed_runs.append(parse_curation(raw, used_provider, used_model))
+        except Exception as exc:
+            last_error = exc
+    if not parsed_runs:
+        raise last_error  # type: ignore[misc]
+    return aggregate_runs(parsed_runs)
 
 
 def curate(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -291,6 +380,12 @@ def curate(payload: Dict[str, Any]) -> Dict[str, Any]:
         payload.get("ollama_base_url") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
     )
 
+    try:
+        judge_runs = int(payload.get("judge_runs") or 1)
+    except (TypeError, ValueError):
+        judge_runs = 1
+    judge_runs = min(max(judge_runs, 1), MAX_JUDGE_RUNS)
+
     chunks = select_chunks(split_chunks(text))
     if not chunks:
         raise ValueError("Text is required")
@@ -304,15 +399,17 @@ def curate(payload: Dict[str, Any]) -> Dict[str, Any]:
             index,
             len(chunks),
         )
-        raw, used_provider, used_model = complete_with_fallback(
-            prompt,
-            provider,
-            openai_model,
-            ollama_model,
-            openai_api_key,
-            ollama_base_url,
+        curations.append(
+            judge_chunk(
+                prompt,
+                judge_runs,
+                provider,
+                openai_model,
+                ollama_model,
+                openai_api_key,
+                ollama_base_url,
+            )
         )
-        curations.append(parse_curation(raw, used_provider, used_model))
 
     aggregated = aggregate_curations(curations)
     return {"success": True, "curation": aggregated}
