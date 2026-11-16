@@ -6,6 +6,7 @@ import {
     curationScoreFromOverall,
     curationSourceText,
     curationTimeoutMs,
+    judgeRunsForPayload,
     shouldSkipPlaylistCuration,
     unavailableCurationMessage,
 } from './curation-rules'
@@ -75,5 +76,40 @@ describe('unavailableCurationMessage', () => {
 
     it('asks for the key or local Ollama when the provider returns nothing', () => {
         assert.match(unavailableCurationMessage(), /Ollama/)
+    })
+})
+
+describe('judgeRunsForPayload', () => {
+    it('clamps to the 1..5 range', () => {
+        assert.equal(judgeRunsForPayload(99), 5)
+        assert.equal(judgeRunsForPayload(0), 1)
+        assert.equal(judgeRunsForPayload(Number.NaN), 1)
+        assert.equal(judgeRunsForPayload(3), 3)
+    })
+})
+
+describe('legacy curation data', () => {
+    it('still skips playlist curation without the new optional fields', () => {
+        assert.equal(
+            shouldSkipPlaylistCuration('unique', {
+                coherence: 7,
+                richness: 7,
+                factuality: 7,
+                overall: 7,
+                rationale: 'x',
+                provider: 'openai',
+                model: 'm',
+            }),
+            true,
+        )
+    })
+})
+
+describe('curationTimeoutMs with judge runs', () => {
+    it('keeps runs=1 identical and scales per-chunk term and cap by runs', () => {
+        assert.equal(curationTimeoutMs('a'.repeat(6000), 1), 210000)
+        assert.equal(curationTimeoutMs('a'.repeat(6000), 3), 120000 + 270000)
+        assert.equal(curationTimeoutMs('a'.repeat(120_000), 3), 2_700_000)
+        assert.equal(curationTimeoutMs('a'.repeat(120_000), 5), 4_500_000)
     })
 })

@@ -52,6 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import text_processor as tp  # noqa: E402
 from punctuation_restorer import needs_punctuation, word_keys  # noqa: E402
+from judge_prompts import PAIRWISE_PROMPT_VERSION, PAIRWISE_SYSTEM_PROMPT, wrap_pair  # noqa: E402
 
 VOWEL_GROUP_RE = re.compile(r"[aeiouyáàâãéêíóôõúü]+", re.IGNORECASE)
 SENTENCE_SPLIT_RE = re.compile(r"[.!?]+")
@@ -212,10 +213,27 @@ def rank_biserial(signed: np.ndarray) -> float:
     return (positive - negative) / ranks.sum()
 
 
-JUDGE_PROMPT = """You compare two versions of the same speech transcript excerpt.
-Decide which one is better as text for a language-model training dataset:
-readable sentences, no speech noise (hesitations, stutters, caption tags), faithful to what was said.
-Return JSON only: {"winner": "A" | "B" | "tie", "reason": "<one short sentence>"}"""
+JUDGE_PROMPT = PAIRWISE_SYSTEM_PROMPT
+
+
+def normalize_winner(value: Any) -> str:
+    if not isinstance(value, str):
+        return "tie"
+    text = re.sub(r"^version[\s_\-]*", "", value.strip().lower()).strip(" .!\"'")
+    return {"a": "A", "b": "B"}.get(text, "tie")
+
+
+def resolve_swapped(first: str, second: str) -> tuple[str, bool]:
+    if first == second:
+        return first, True
+    return "tie", False
+
+
+def self_preference_warning(judge_model: str, restorer_model: str) -> Optional[str]:
+    if judge_model.strip().lower() == restorer_model.strip().lower():
+        return (f"Aviso de self-preference: o juiz ({judge_model}) é o mesmo modelo que restaurou a "
+                "pontuação; o juiz tende a favorecer saídas do próprio modelo.")
+    return None
 
 
 def excerpt_pair(row: Dict[str, Any]) -> tuple[str, str]:
@@ -225,6 +243,12 @@ def excerpt_pair(row: Dict[str, Any]) -> tuple[str, str]:
     raw_part = " ".join(raw_words[:JUDGE_WORDS])
     processed_part = " ".join(processed_words[: max(1, round(JUDGE_WORDS * ratio))])
     return raw_part, processed_part
+
+
+def restorer_model(provider: str) -> str:
+    if provider == "ollama":
+        return os.getenv("OLLAMA_MODEL") or "llama3"
+    return os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
 
 
 def judge(rows: List[Dict[str, Any]], limit: int, cache_dir: Optional[Path]) -> List[Dict[str, Any]]:
@@ -237,32 +261,34 @@ def judge(rows: List[Dict[str, Any]], limit: int, cache_dir: Optional[Path]) -> 
     tasks = []
     for row in sample:
         raw_part, processed_part = excerpt_pair(row)
-        processed_first = rng.random() < 0.5
-        a, b = (processed_part, raw_part) if processed_first else (raw_part, processed_part)
-        tasks.append((row, processed_first, f"Version A:\n{a}\n\nVersion B:\n{b}"))
+        tasks.append((row, [(wrap_pair(processed_part, raw_part), "A"), (wrap_pair(raw_part, processed_part), "B")]))
 
     def ask(task):
-        row, processed_first, prompt = task
+        row, orders = task
+        verdicts = []
+        for prompt, processed_label in orders:
+            def call(prompt=prompt) -> Dict[str, Any]:
+                raw, _, used_model = complete_with_fallback(
+                    prompt, provider, model, os.getenv("OLLAMA_MODEL") or "llama3",
+                    os.getenv("OPENAI_API_KEY") or "",
+                    os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434",
+                    JUDGE_PROMPT,
+                )
+                parsed = extract_json(raw)
+                return {"winner": normalize_winner(parsed.get("winner")),
+                        "reason": str(parsed.get("reason", "")), "model": used_model}
 
-        def call() -> Dict[str, Any]:
-            raw, _, used_model = complete_with_fallback(
-                prompt, provider, model, os.getenv("OLLAMA_MODEL") or "llama3",
-                os.getenv("OPENAI_API_KEY") or "",
-                os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434",
-                JUDGE_PROMPT,
-            )
-            parsed = extract_json(raw)
-            return {"winner": str(parsed.get("winner", "tie")).strip().upper(),
-                    "reason": parsed.get("reason", ""), "model": used_model}
-
-        verdict = cached(cache_dir, f"judge:{model}:{prompt}", call)
-        processed_label = "A" if processed_first else "B"
-        if verdict["winner"] not in ("A", "B"):
-            outcome = "tie"
-        else:
-            outcome = "processed" if verdict["winner"] == processed_label else "raw"
-        return {"id": row["id"], "group": row["group"], "outcome": outcome,
-                "reason": verdict["reason"], "model": verdict["model"]}
+            verdict = cached(cache_dir, f"judge:{PAIRWISE_PROMPT_VERSION}:{model}:{prompt}", call)
+            if verdict["winner"] == "tie":
+                content = "tie"
+            else:
+                content = "processed" if verdict["winner"] == processed_label else "raw"
+            verdicts.append((content, verdict))
+        outcome, consistent = resolve_swapped(verdicts[0][0], verdicts[1][0])
+        reason = verdicts[0][1]["reason"] if consistent else " | ".join(str(v["reason"]) for _, v in verdicts)
+        return {"id": row["id"], "group": row["group"], "outcome": outcome, "reason": reason,
+                "model": verdicts[0][1]["model"], "positionConsistent": consistent,
+                "promptVersion": PAIRWISE_PROMPT_VERSION}
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         return list(pool.map(ask, tasks))
@@ -315,6 +341,9 @@ def judge_table(verdicts: List[Dict[str, Any]]) -> List[str]:
         ties = len(subset) - wins - losses
         p_value = binomtest(wins, wins + losses).pvalue if wins + losses else 1.0
         lines.append(f"| {group} | {len(subset)} | {wins} | {losses} | {ties} | {fmt_p(p_value)} |")
+    if verdicts:
+        consistency = sum(bool(v.get("positionConsistent")) for v in verdicts) / len(verdicts)
+        lines += ["", f"Consistência de posição: {consistency * 100:.0f}% ({len(verdicts)} docs)"]
     return lines
 
 
@@ -357,10 +386,15 @@ def main() -> None:
     if args.judge:
         verdicts = judge(rows, args.judge, cache_dir)
         report += ["", "## Julgamento cego pareado (LLM)", "",
-                   f"Trechos de ~{JUDGE_WORDS} palavras, ordem A/B sorteada, modelo {verdicts[0]['model'] if verdicts else '—'}.", ""]
+                   f"Trechos de ~{JUDGE_WORDS} palavras, duas ordens A/B por documento, modelo {verdicts[0]['model'] if verdicts else '—'}.", ""]
         report += judge_table(verdicts)
+        warning = self_preference_warning(
+            os.getenv("JUDGE_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+            restorer_model(os.getenv("CURATION_LLM_PROVIDER") or "openai"))
+        if warning:
+            report += ["", warning]
         with (args.out / "judge.csv").open("w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["id", "group", "outcome", "reason", "model"])
+            writer = csv.DictWriter(handle, fieldnames=["id", "group", "outcome", "reason", "model", "positionConsistent", "promptVersion"])
             writer.writeheader()
             writer.writerows(verdicts)
 

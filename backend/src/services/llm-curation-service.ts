@@ -11,6 +11,7 @@ import {
     curationScoreFromOverall,
     curationSourceText,
     curationTimeoutMs,
+    judgeRunsForPayload,
     shouldSkipPlaylistCuration,
     unavailableCurationMessage,
 } from './curation-rules'
@@ -24,6 +25,18 @@ export interface LlmCurationData {
     provider: string
     model: string
     chunkCount?: number
+    criteriaRationale?: {
+        coherence?: string
+        richness?: string
+        factuality?: string
+    }
+    promptVersion?: string
+    runs?: number
+    scoreStdDev?: {
+        coherence?: number
+        richness?: number
+        factuality?: number
+    }
 }
 
 interface PythonCurationResponse {
@@ -51,6 +64,7 @@ export class LlmCurationService {
         languageCode?: string | null,
     ): Promise<LlmCurationData> {
         assertCurationText(text)
+        const judgeRuns = judgeRunsForPayload(env.CURATION_JUDGE_RUNS)
 
         const response = await executePythonScript<
             {
@@ -62,6 +76,7 @@ export class LlmCurationService {
                 openai_model: string
                 ollama_base_url: string
                 ollama_model: string
+                judge_runs: number
             },
             PythonCurationResponse
         >(
@@ -75,8 +90,9 @@ export class LlmCurationService {
                 openai_model: env.OPENAI_MODEL,
                 ollama_base_url: env.OLLAMA_BASE_URL,
                 ollama_model: env.OLLAMA_MODEL,
+                judge_runs: judgeRuns,
             },
-            { timeout: curationTimeoutMs(text) },
+            { timeout: curationTimeoutMs(text, judgeRuns) },
         )
 
         if (!response.success || !response.curation) {

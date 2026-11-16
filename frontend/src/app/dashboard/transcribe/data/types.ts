@@ -27,6 +27,18 @@ export interface LlmCurationData {
   provider: string
   model: string
   chunkCount?: number
+  criteriaRationale?: {
+    coherence?: string
+    richness?: string
+    factuality?: string
+  }
+  promptVersion?: string
+  runs?: number
+  scoreStdDev?: {
+    coherence?: number
+    richness?: number
+    factuality?: number
+  }
 }
 
 export interface TranscriptionJob {
